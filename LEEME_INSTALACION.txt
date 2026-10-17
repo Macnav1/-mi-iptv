@@ -1,0 +1,40 @@
+MI IPTV v1 — PROTOTIPO INSTALABLE (PWA)
+Fecha: 17 de octubre de 2026
+
+CONTENIDO
+- index.html: aplicación
+- styles.css y app.js: diseño y funciones
+- assets: iconos y lista original de demostración de 43 canales
+- manifest.webmanifest y sw.js: instalación como aplicación web
+- lista_original_43.m3u: copia de la lista inicial
+
+FUNCIONES
+1. Se incluyen 43 registros de una lista M3U anterior.
+2. Importa más listas M3U desde Archivos o intenta cargarlas desde una URL web.
+3. Acceso directo a la lista en español de IPTV-org (requiere acceso web permitido por el servidor).
+4. Búsqueda por nombre, país y categoría; 50 canales por página, sin truncar la colección.
+5. Reproducir señales compatibles con Safari; controles para cambiar de canal.
+6. Marcar Conservar, Quitar o Favoritos para cada entrada.
+7. Exportar M3U de conservados o favoritos.
+8. Copia de seguridad y restauración JSON; almacenamiento en el dispositivo mediante IndexedDB, si está disponible.
+
+INSTALAR EN IPHONE COMO APLICACIÓN
+1. Extrae el ZIP preservando la estructura de carpetas.
+2. Sube TODOS sus archivos a un servidor de páginas estáticas HTTPS, por ejemplo GitHub Pages o Cloudflare Pages.
+   Importante: subir solamente index.html no es suficiente, porque depende de app.js, styles.css y assets/.
+3. Abre la dirección HTTPS desde Safari (no desde iZip/Archivos).
+4. En Safari pulsa Compartir → Añadir a pantalla de inicio → Añadir.
+5. Abre Mi IPTV desde su icono.
+
+PRUEBA PREVIA SIN PUBLICACIÓN
+Abre Mi_IPTV_Prueba_iPhone.html. Incluye sus recursos dentro del mismo HTML y muestra la lista original,
+pero la ejecución y el guardado de datos pueden fallar en previsualizadores de iOS como iZip.
+Para la experiencia completa, publica la carpeta como web HTTPS.
+
+LIMITACIONES Y TRANSPARENCIA
+- Los 43 canales provienen del M3U de prueba anterior; su reproducción NO se verificó individualmente. Sus categorías temáticas son sugerencias hechas para navegar, pues el M3U no las declaraba.
+- La app no incluye los miles de registros de IPTV-org: su importación requiere conexión o un archivo M3U.
+- Safari solo puede reproducir directamente algunos formatos (sobre todo HLS compatible); otros enlaces pueden fallar por geobloqueo, DRM, servidor caído o incompatibilidad del formato.
+- Importar listas URL depende de permisos CORS del servidor. No podemos eliminar CORS desde el navegador.
+- El guardado local puede perderse al borrar los datos del navegador; exporta respaldos desde Ajustes.
+- No contiene suscripciones ni retransmisiones de canales exclusivos de pago. Usa fuentes autorizadas.

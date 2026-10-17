@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071426">
+  <meta name="description" content="Organiza, filtra y reproduce listas IPTV M3U gratuitas en tu iPhone.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mi IPTV">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="icon" type="image/png" href="./assets/icon-192.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Mi IPTV · Listas y canales</title>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="branding"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor"/></svg></div><div><h1>Mi IPTV</h1><span>Tu televisión, tus listas</span></div></div>
+      <button class="iconbtn" id="settingsTop" aria-label="Configuración" title="Configuración">⚙</button>
+    </header>
+    <main id="main" tabindex="-1">
+      <section class="screen active" id="screen-home" aria-label="Inicio">
+        <div class="welcome">
+          <p class="eyebrow">BIENVENIDO A MI IPTV</p>
+          <h2>Tus canales, a tu manera</h2>
+          <p>Explora, reproduce y decide cuáles conservar. Todo organizado en un solo lugar.</p>
+          <div class="welcome-actions">
+            <button class="btn primary" data-go="explore">Explorar canales <span aria-hidden="true">→</span></button>
+            <button class="btn outline" data-go="playlists">Agregar lista</button>
+          </div>
+        </div>
+        <div class="stats-grid" id="home-stats" aria-label="Resumen de canales"></div>
+        <div class="section-title"><h3>Categorías</h3><button class="linkbtn" data-go="explore">Ver todas →</button></div>
+        <div class="category-grid" id="home-categories"></div>
+        <div class="section-title"><h3>Mis listas</h3><button class="linkbtn" data-go="playlists">Administrar →</button></div>
+        <div id="home-playlists" class="home-playlists"></div>
+      </section>
+
+      <section class="screen" id="screen-explore" aria-label="Explorar canales">
+        <div class="section-intro"><h2>Explorar canales</h2><p>Busca, reproduce y clasifica cada señal.</p></div>
+        <label class="search-wrap" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Buscar canal, país o categoría" autocomplete="off"><button type="button" class="clear-search" id="clearSearch" aria-label="Limpiar búsqueda">×</button></label>
+        <div class="filter-grid">
+          <label>Lista<select id="listFilter" aria-label="Filtrar por lista"></select></label>
+          <label>País<select id="countryFilter" aria-label="Filtrar por país"></select></label>
+          <label>Categoría<select id="categoryFilter" aria-label="Filtrar por categoría"></select></label>
+        </div>
+        <div class="pills" id="decisionFilters" role="group" aria-label="Estado de selección">
+          <button type="button" class="pill selected" data-choice="all">Todos</button>
+          <button type="button" class="pill" data-choice="pending">Pendientes</button>
+          <button type="button" class="pill" data-choice="keep">Conservar</button>
+          <button type="button" class="pill" data-choice="remove">Quitar</button>
+          <button type="button" class="pill" data-choice="favorite">Favoritos</button>
+        </div>
+        <div class="resultbar"><p id="resultCount" aria-live="polite">Cargando canales…</p><button id="resetExploreFilters" class="linkbtn">Limpiar filtros</button></div>
+        <div class="channel-list" id="channelsList"></div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+
+      <section class="screen" id="screen-playlists" aria-label="Administración de listas">
+        <div class="section-intro"><h2>Mis listas M3U</h2><p>Importa archivos locales o intenta cargar una dirección web.</p></div>
+        <div class="panel">
+          <h3>Agregar una lista</h3>
+          <div class="add-tabs"><button id="tab-file" class="addtab selected" data-type="file">Desde Archivos</button><button id="tab-url" class="addtab" data-type="url">Desde URL</button></div>
+          <form id="formFile" class="add-form">
+            <label class="formlabel" for="fileName">Nombre de la lista (opcional)</label>
+            <input id="fileName" type="text" placeholder="Ej. Mis canales de México" maxlength="100">
+            <label class="file-picker" for="playlistFile"><span aria-hidden="true">↥</span><span><strong>Seleccionar archivo M3U</strong><small>.m3u o .m3u8 desde Archivos</small></span></label>
+            <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/vnd.apple.mpegurl,text/plain" hidden>
+            <p id="chosenFile" class="helptext">Aún no has elegido un archivo.</p>
+            <button class="btn primary full" type="submit">Importar archivo</button>
+          </form>
+          <form id="formUrl" class="add-form hidden">
+            <label class="formlabel" for="urlName">Nombre de la lista (opcional)</label><input id="urlName" type="text" placeholder="Ej. IPTV-org español" maxlength="100">
+            <label class="formlabel" for="playlistUrl">Dirección M3U (HTTPS)</label>
+            <input id="playlistUrl" type="url" placeholder="https://…/canales.m3u" inputmode="url" required>
+            <button class="btn primary full" type="submit">Cargar dirección</button>
+            <p class="helptext">Algunos servidores bloquean la lectura desde aplicaciones web (CORS). Si ocurre, descarga el archivo M3U e impórtalo desde Archivos.</p>
+          </form>
+        </div>
+        <div class="panel" aria-label="Catálogo IPTV-org">
+          <h3>Catálogo público en español</h3>
+          <p class="muted">Puedes importar los canales en español publicados por IPTV-org. Esta descarga necesita Internet y que el servidor permita la lectura desde Safari.</p>
+          <button class="btn outline full" id="quickSpanish">Cargar canales en español de IPTV-org</button>
+          <p class="helptext">Si Safari bloquea la descarga, conserva los 43 canales incluidos o importa el archivo <code>spa.m3u</code> desde Archivos. No se ha comprobado la reproducción de cada señal.</p>
+        </div>
+        <div class="section-title"><h3>Listas guardadas</h3><span class="muted" id="playlistCount">0 listas</span></div>
+        <div id="savedPlaylists" class="saved-lists"></div>
+      </section>
+
+      <section class="screen" id="screen-saved" aria-label="Mis selecciones">
+        <div class="section-intro"><h2>Mis selecciones</h2><p>Canales que quieres conservar, quitar o marcar como favoritos.</p></div>
+        <div class="stats-grid" id="saved-stats"></div>
+        <div class="pills" role="group" aria-label="Selección visible">
+          <button class="pill selected" data-saved="keep">Conservar</button><button class="pill" data-saved="favorite">Favoritos</button><button class="pill" data-saved="remove">Quitar</button><button class="pill" data-saved="pending">Pendientes</button>
+        </div>
+        <div class="action-row"><button class="btn outline" id="exportKept">Exportar conservados M3U</button><button class="btn outline" id="exportFavorites">Exportar favoritos M3U</button></div>
+        <p class="muted summary" id="savedDescription"></p>
+        <div id="savedChannels" class="channel-list"></div>
+        <div class="pagination" id="savedPagination"></div>
+      </section>
+
+      <section class="screen" id="screen-settings" aria-label="Ajustes">
+        <div class="section-intro"><h2>Configuración</h2><p>Privacidad, compatibilidad y copia de seguridad.</p></div>
+        <div class="panel"><h3>Compatibilidad con iPhone</h3><p class="muted">Mi IPTV reproduce señales compatibles con el video nativo de Safari, especialmente HLS (.m3u8). No reproduce automáticamente transmisiones con DRM, restricciones de región o formatos no admitidos.</p><p class="muted">La interfaz puede funcionar sin conexión una vez instalada, pero la televisión en directo requiere Internet. Los 43 canales incluidos tienen categorías orientativas sugeridas; no se ha verificado individualmente su reproducción.</p></div>
+        <div class="panel"><h3>Copias de seguridad</h3><p class="muted">Las listas y tus decisiones se guardan localmente en este navegador. Exporta una copia si vas a cambiar de teléfono o borrar datos de Safari.</p><div class="stack"><button class="btn outline" id="backupBtn">Descargar copia de seguridad (.json)</button><label class="btn outline file-btn" for="restoreFile">Restaurar copia (.json)</label><input type="file" id="restoreFile" accept="application/json,.json" hidden></div></div>
+        <div class="panel"><h3>Instalar en la pantalla de inicio</h3><p class="muted">Una vez publicada en HTTPS, ábrela en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio».</p><p class="helptext" id="installStatus"></p></div>
+        <div class="panel danger-panel"><h3>Eliminar datos locales</h3><p class="muted">Esta acción borra las listas importadas, las selecciones y los favoritos almacenados en este navegador.</p><button class="btn danger" id="deleteAll">Borrar mis datos</button></div>
+      </section>
+    </main>
+    <nav class="bottom-nav" aria-label="Navegación principal">
+      <button data-nav="home" class="active"><span class="nav-symbol">⌂</span><span>Inicio</span></button>
+      <button data-nav="explore"><span class="nav-symbol">⌕</span><span>Explorar</span></button>
+      <button data-nav="playlists"><span class="nav-symbol">☷</span><span>Listas</span></button>
+      <button data-nav="saved"><span class="nav-symbol">♡</span><span>Guardados</span></button>
+      <button data-nav="settings"><span class="nav-symbol">⚙</span><span>Ajustes</span></button>
+    </nav>
+  </div>
+
+  <div id="playerBackdrop" class="modal-backdrop hidden" role="presentation"></div>
+  <section id="playerModal" class="player-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
+    <div class="player-head"><div><h2 id="playerTitle">Canal</h2><p id="playerSubtitle">Transmisión en directo</p></div><button id="closePlayer" class="iconbtn" aria-label="Cerrar reproductor">×</button></div>
+    <div class="player-box"><video id="video" controls playsinline webkit-playsinline preload="none"></video><div id="playStatus" class="play-status hidden" role="status"></div></div>
+    <div class="player-controls"><button id="previousChannel" class="btn outline">← Anterior</button><button id="nextChannel" class="btn outline">Siguiente →</button></div>
+    <div class="player-controls"><button id="playerFavorite" class="btn outline">♡ Favorito</button><button id="playerKeep" class="btn outline">✓ Conservar</button><button id="playerRemove" class="btn outline">× Quitar</button></div>
+    <div class="player-foot"><button id="copyStream" class="linkbtn">Copiar dirección de transmisión</button></div>
+  </section>
+  <div class="toast hidden" role="status" id="toast"></div>
+  <script src="./assets/demo.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

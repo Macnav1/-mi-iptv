@@ -1,0 +1,50 @@
+MI IPTV — PROTOTIPO V1 (17 OCTUBRE 2026)
+==========================================
+
+Esta es una aplicación web instalable (PWA) para organizar y reproducir canales IPTV compatibles con Safari en iPhone. No es una aplicación nativa de App Store.
+
+FUNCIONES DE ESTA VERSIÓN
+- Lista inicial de 43 canales procedente de la selección previamente utilizada en VLC.
+- Importar archivos M3U/M3U8 desde Archivos del iPhone.
+- Intentar importar listas públicas mediante URL HTTPS (si el servidor permite CORS).
+- Buscar y filtrar por lista, país, categoría y estado de selección.
+- Navegar por todos los registros con páginas de 50; no hay un límite arbitrario al catálogo importado.
+- Marcar individualmente Conservar, Quitar o Favorito.
+- Exportar canales conservados/favoritos a M3U.
+- Crear/restaurar una copia JSON con listas y decisiones.
+- Video HLS/MP4 compatible con Safari, reproducción y cambio de canal.
+- Instalación como acceso directo de pantalla de inicio cuando está hospedada en HTTPS.
+
+INSTALACIÓN EN IPHONE
+1. Publicar TODO EL CONTENIDO de esta carpeta en un sitio HTTPS (por ejemplo GitHub Pages o Netlify). El index.html, app.js, styles.css, sw.js, manifest.webmanifest y carpeta assets deben quedar juntos con sus rutas originales.
+2. Abrir la dirección HTTPS publicada usando Safari en el iPhone.
+3. Pulsar Compartir (cuadro con flecha) > Añadir a pantalla de inicio.
+4. Abrir el icono Mi IPTV y explorar los 43 canales incluidos.
+
+IMPORTANTE: el archivo ZIP NO se instala directamente como app en iOS. Tampoco es suficiente abrir index.html en iZip o en la vista previa de Archivos, ya que pueden bloquear JavaScript y el almacenamiento. Es necesario publicarlo en HTTPS para que funcione como PWA.
+
+USO
+- Explorar: reproducir con ▶, filtrar o marcar canal por canal.
+- Listas: cargar M3U desde Archivos o introducir una URL.
+- Guardados: exportar selección (M3U) de canales conservados.
+- Ajustes: descargar y restaurar copia de seguridad (JSON).
+
+LIMITACIONES
+- La existencia de una URL en el M3U no garantiza que reproduzca video. Las señales pueden estar inactivas, protegidas, restringidas por país o necesitar autenticación.
+- Safari reproduce principalmente HLS y formatos web compatibles. VLC admite más protocolos.
+- Los navegadores suelen impedir leer listas remotas de servidores sin CORS: en ese caso, importar el archivo desde Archivos.
+- El M3U original de 43 canales agrupaba principalmente por país y no incluía categorías temáticas. La app propone categorías temáticas para estos 43 registros, identificadas como «sugerida»; no proceden del archivo original.
+- Guardado local en el dispositivo; borrar los datos de Safari puede eliminar el historial de selecciones. Usa la copia de seguridad.
+- No se ha verificado individualmente el funcionamiento de las 43 transmisiones.
+
+ARCHIVOS INCLUIDOS
+- index.html: interfaz
+- app.js: lógica de listas, filtros, selección y reproducción
+- styles.css: diseño para teléfono y computadora
+- assets/demo.js: lista inicial de 43 canales precargada
+- lista_original_43.m3u: copia de esa lista
+- assets/icon-*.png: iconos
+- sw.js y manifest.webmanifest: instalación y acceso sin conexión a la interfaz
+
+ESTADO DE DESARROLLO
+Prototipo funcional. Se comprobó con navegador Chromium simulado (iPhone) el arranque con 43 registros, navegación, filtros, selección, importación de 157 registros adicionales, paginación y exportación M3U. La transmisión de video en Safari real, la instalación HTTPS y compatibilidad con cada proveedor requieren probarse después del despliegue.

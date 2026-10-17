@@ -11,8 +11,8 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css">
-  <title>Mi IPTV · Listas y canales</title>
+  <link rel="stylesheet" href="./styles.css?v=1.3">
+  <title>Mi IPTV V1.3 · Listas y canales</title>
 </head>
 <body>
   <div class="shell">
@@ -54,6 +54,7 @@
           <button type="button" class="pill" data-choice="favorite">Favoritos</button>
         </div>
         <div class="resultbar"><p id="resultCount" aria-live="polite">Cargando canales…</p><button id="resetExploreFilters" class="linkbtn">Limpiar filtros</button></div>
+        <label class="visibility-switch"><input id="showHidden" type="checkbox"> Mostrar canales ocultos</label>
         <div class="channel-list" id="channelsList"></div>
         <div class="pagination" id="pagination"></div>
       </section>
@@ -77,6 +78,15 @@
             <input id="playlistUrl" type="url" placeholder="https://…/canales.m3u" inputmode="url" required>
             <button class="btn primary full" type="submit">Cargar dirección</button>
             <p class="helptext">Algunos servidores bloquean la lectura desde aplicaciones web (CORS). Si ocurre, descarga el archivo M3U e impórtalo desde Archivos.</p>
+          </form>
+        </div>
+        <div class="panel"><h3>Agregar canal individual</h3><p class="muted">Agrega una transmisión de la que tengas una dirección autorizada. No modifica las listas ni las decisiones anteriores.</p>
+          <form id="formManual" class="add-form">
+            <label class="formlabel" for="manualName">Nombre del canal *</label><input id="manualName" type="text" maxlength="120" required placeholder="Nombre de la señal">
+            <label class="formlabel" for="manualUrl">Dirección de transmisión HTTP(S) *</label><input id="manualUrl" type="url" required placeholder="https://servidor/canal.m3u8">
+            <label class="formlabel" for="manualCountry">País</label><input id="manualCountry" type="text" maxlength="70" placeholder="Ej. México">
+            <label class="formlabel" for="manualCategory">Categoría</label><input id="manualCategory" type="text" maxlength="70" placeholder="Ej. Películas">
+            <button class="btn primary full" type="submit">+ Agregar canal</button>
           </form>
         </div>
         <div class="panel" aria-label="Catálogo IPTV-org">
@@ -104,6 +114,7 @@
       <section class="screen" id="screen-settings" aria-label="Ajustes">
         <div class="section-intro"><h2>Configuración</h2><p>Privacidad, compatibilidad y copia de seguridad.</p></div>
         <div class="panel"><h3>Compatibilidad con iPhone</h3><p class="muted">Mi IPTV reproduce señales compatibles con el video nativo de Safari, especialmente HLS (.m3u8). No reproduce automáticamente transmisiones con DRM, restricciones de región o formatos no admitidos.</p><p class="muted">La interfaz puede funcionar sin conexión una vez instalada, pero la televisión en directo requiere Internet. Los 43 canales incluidos tienen categorías orientativas sugeridas; no se ha verificado individualmente su reproducción.</p></div>
+        <div class="panel"><h3>Papelera recuperable</h3><p class="muted">Los canales que elimines se guardan aquí junto con su estado de Conservar/Quitar y favoritos. Puedes restaurarlos sin afectar el resto.</p><p id="trashCount" class="helptext">0 canales en papelera</p><div id="trashList" class="saved-lists"></div><button id="emptyTrash" class="btn danger">Vaciar papelera definitivamente</button></div>
         <div class="panel"><h3>Copias de seguridad</h3><p class="muted">Las listas y tus decisiones se guardan localmente en este navegador. Exporta una copia si vas a cambiar de teléfono o borrar datos de Safari.</p><div class="stack"><button class="btn outline" id="backupBtn">Descargar copia de seguridad (.json)</button><label class="btn outline file-btn" for="restoreFile">Restaurar copia (.json)</label><input type="file" id="restoreFile" accept="application/json,.json" hidden></div></div>
         <div class="panel"><h3>Instalar en la pantalla de inicio</h3><p class="muted">Una vez publicada en HTTPS, ábrela en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio».</p><p class="helptext" id="installStatus"></p></div>
         <div class="panel danger-panel"><h3>Eliminar datos locales</h3><p class="muted">Esta acción borra las listas importadas, las selecciones y los favoritos almacenados en este navegador.</p><button class="btn danger" id="deleteAll">Borrar mis datos</button></div>
@@ -128,6 +139,6 @@
   </section>
   <div class="toast hidden" role="status" id="toast"></div>
   <script src="./demo.js"></script>
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=1.3" defer></script>
 </body>
 </html>

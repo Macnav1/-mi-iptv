@@ -30,7 +30,7 @@
        const possibleCountry=textCountry(group);
        let category=group;
        if(!country && possibleCountry && (countryAlias[group.toLowerCase()]||countryNames[group.toUpperCase()])){country=possibleCountry;category='';}
-       if(!country && attrs['tvg-id']){const t=String(attrs['tvg-id']).match(/\.([a-z]{2})$/i);if(t)country=textCountry(t[1])}
+       if(!country && attrs['tvg-id']){const t=String(attrs['tvg-id']).match(/\.([a-z]{2})(?:@[^.]*)?$/i);if(t)country=textCountry(t[1])}
        meta={name, country:country||'Sin país', category:catName(category),logo:safeUrl(attrs['tvg-logo']),tvgId:attrs['tvg-id']||'',language:attrs['tvg-language']||'',group,rawExtinf:line};
        continue;
      }
@@ -107,10 +107,87 @@
  $('playlistFile').addEventListener('change',e=>{$('chosenFile').textContent=e.target.files?.[0]?.name||'Aún no has elegido un archivo.'});
  document.querySelectorAll('.addtab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.addtab').forEach(x=>x.classList.toggle('selected',x===b));$('formFile').classList.toggle('hidden',b.dataset.type!=='file');$('formUrl').classList.toggle('hidden',b.dataset.type!=='url')}));
  $('formFile').addEventListener('submit',async e=>{e.preventDefault();const file=$('playlistFile').files?.[0];if(!file){toast('Primero selecciona el archivo M3U.');return}try{let data=await file.text();addList($('fileName').value||file.name,data,'file');$('formFile').reset();$('chosenFile').textContent='Aún no has elegido un archivo.';go('explore')}catch(err){toast(err.message)}});
- async function fetchM3U(url){const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),20000);try{const response=await fetch(url,{signal:ctl.signal,cache:'no-store'});if(!response.ok)throw new Error(`El servidor respondió ${response.status}.`);return await response.text()}finally{clearTimeout(timer)}}
+ async function fetchM3U(url){const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),25000);try{const response=await fetch(url,{signal:ctl.signal,cache:'no-store'});if(!response.ok)throw new Error(`El servidor respondió ${response.status}.`);const text=await response.text();if(!/^\s*#EXTM3U/m.test(text)||!/#EXTINF\s*:/i.test(text))throw new Error('La fuente no devolvió una lista M3U válida.');return text}finally{clearTimeout(timer)}}
+ const IPTV_ORG_FEEDS=[
+   {name:'IPTV-org español', label:'Español', sources:[
+     'https://iptv-org.github.io/iptv/languages/spa.m3u',
+     'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/languages/spa.m3u',
+     'https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/languages/spa.m3u'
+   ]},
+   {name:'IPTV-org Latinoamérica', label:'Latinoamérica', sources:[
+     'https://iptv-org.github.io/iptv/regions/latam.m3u',
+     'https://raw.githubusercontent.com/iptv-org/iptv/gh-pages/regions/latam.m3u',
+     'https://cdn.jsdelivr.net/gh/iptv-org/iptv@gh-pages/regions/latam.m3u'
+   ]}
+ ];
+ // La lista de idioma español se conserva tal como la clasifica IPTV-org.
+ // La lista LATAM es un criterio regional adicional: puede incluir señales
+ // sin etiqueta de idioma, por decisión expresa del usuario.
+ // No sustituimos listas existentes ni alteramos sus favoritos o decisiones.
+ function addUniqueCatalog(feed, text, remote){
+   if(state.playlists.some(p=>p.name===feed.name))return {status:'existing',added:0,skipped:0};
+   const id='p-'+hash(feed.name+'|'+text.slice(0,300)+'|'+text.length);
+   const candidates=parseM3U(text,id);
+   if(!candidates.length)throw new Error('La fuente no contiene canales reproducibles en formato M3U.');
+   const seen=new Set(state.channels.map(c=>c.url.trim()));
+   const channels=[];
+   for(const c of candidates){
+     const key=c.url.trim();
+     if(seen.has(key))continue;
+     seen.add(key);
+     c.sourceScope=feed.label;
+     channels.push(c);
+   }
+   const skipped=candidates.length-channels.length;
+   state.playlists.push({id,name:feed.name,count:channels.length,source:'url',url:remote,createdAt:new Date().toISOString()});
+   state.channels.push(...channels);
+   save();renderAll();
+   return {status:'added',added:channels.length,skipped};
+ }
+ async function importSpanishAndLatam(button){
+   button.disabled=true;
+   const previous=button.textContent;
+   const reports=[],errors=[];
+   try{
+     for(const feed of IPTV_ORG_FEEDS){
+       if(state.playlists.some(p=>p.name===feed.name)){
+         reports.push(feed.label+': ya estaba importada');
+         continue;
+       }
+       let imported=false,lastError='';
+       for(let i=0;i<feed.sources.length;i++){
+         button.textContent=`Descargando ${feed.label} (${i+1}/${feed.sources.length})…`;
+         try{
+           const text=await fetchM3U(feed.sources[i]);
+           const r=addUniqueCatalog(feed,text,feed.sources[i]);
+           reports.push(`${feed.label}: ${r.added.toLocaleString('es-MX')} nuevos; ${r.skipped.toLocaleString('es-MX')} duplicados omitidos`);
+           imported=true;
+           break;
+         }catch(err){lastError=err.message||String(err)}
+       }
+       if(!imported)errors.push(`${feed.label}: ${lastError}`);
+     }
+     if(reports.length){
+       go('explore');
+       // Mostrar todas las listas, para poder explorar y filtrar libremente.
+       $('listFilter').value='';
+       explorePage=1;
+       renderExplore();
+       toast('Catálogos procesados. Revisa los canales en Explorar.');
+     }
+     if(errors.length){
+       alert('Una o más fuentes no pudieron cargarse. Tus listas, favoritos y selecciones anteriores siguen intactos.\n\n'+errors.join('\n')+'\n\nSi Safari bloquea la conexión, puedes descargar spa.m3u y latam.m3u desde GitHub e importarlos desde «Mis listas → Desde Archivos».');
+     }else if(reports.length){
+       alert('Actualización terminada.\n\n'+reports.join('\n')+'\n\nPuedes revisar individualmente los canales en Explorar. La reproducción no está verificada.');
+     }
+   }finally{
+     button.disabled=false;
+     button.textContent=previous;
+   }
+ }
  async function importFromUrl(name,url,button){button.disabled=true;const prev=button.textContent;button.textContent='Descargando lista…';try{const txt=await fetchM3U(url);addList(name,txt,'url',url);go('explore');return true}catch(err){alert('No fue posible descargar la lista: '+err.message+'\n\nEs posible que Safari bloquee la conexión por restricciones de origen (CORS), que el servidor no responda o que no haya Internet. Como alternativa, descarga el archivo M3U y utiliza «Desde Archivos».');return false}finally{button.disabled=false;button.textContent=prev}}
  $('formUrl').addEventListener('submit',async e=>{e.preventDefault();const url=safeUrl($('playlistUrl').value);if(!url){toast('Introduce una dirección HTTP(S) válida.');return}const ok=await importFromUrl($('urlName').value||url.split('/').pop(),url,$('formUrl').querySelector('[type=submit]'));if(ok)$('formUrl').reset()});
- $('quickSpanish').onclick=()=>importFromUrl('IPTV-org español','https://iptv-org.github.io/iptv/languages/spa.m3u',$('quickSpanish'));
+ $('quickSpanish').onclick=()=>importSpanishAndLatam($('quickSpanish'));
  $('playerBackdrop').onclick=closePlayer;$('closePlayer').onclick=closePlayer;$('previousChannel').onclick=()=>jumpPlayer(-1);$('nextChannel').onclick=()=>jumpPlayer(1);
  $('video').addEventListener('error',()=>{$('playStatus').textContent='La señal no se puede reproducir. Comprueba si está disponible o tiene restricciones. También puedes probar su URL en VLC.';$('playStatus').classList.remove('hidden')});$('video').addEventListener('playing',()=>$('playStatus').classList.add('hidden'));
  $('playerFavorite').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.favorite=!c.favorite})};$('playerKeep').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.decision='keep'})};$('playerRemove').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.decision='remove'})};

@@ -1,0 +1,17 @@
+MI IPTV v1 — ARCHIVOS SUELTOS PARA SUBIR DESDE IPHONE
+
+Si ya subiste al repositorio los archivos de assets al mismo nivel que index.html,
+esta versión está preparada para esa organización.
+
+Deben existir en la raíz de GitHub:
+index.html, app.js, styles.css, sw.js, manifest.webmanifest,
+demo.js, icon-192.png, icon-512.png.
+
+lista_original_43.m3u es una copia auxiliar opcional.
+
+Los únicos 3 archivos que hay que ACTUALIZAR si ya subiste la versión anterior son:
+index.html, manifest.webmanifest, sw.js.
+
+No publiques un ZIP como página web: GitHub Pages sirve los archivos extraídos.
+En Settings -> Pages selecciona Deploy from a branch, main, / (root).
+Tras subir, abre tu URL HTTPS en Safari y recarga una vez si usa la caché anterior.

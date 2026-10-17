@@ -11,8 +11,8 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1.3">
-  <title>Mi IPTV V1.3 · Listas y canales</title>
+  <link rel="stylesheet" href="./styles.css?v=1.4">
+  <title>Mi IPTV V1.4 · Listas y canales</title>
 </head>
 <body>
   <div class="shell">
@@ -93,7 +93,7 @@
           <h3>Catálogo IPTV-org · Español + Latinoamérica</h3>
           <p class="muted">Combina las señales clasificadas en español (todos los países y categorías) y las identificadas por IPTV-org dentro de la región Latinoamérica (LATAM). La selección LATAM puede contener idiomas distintos del español. Se omiten direcciones duplicadas sin borrar tus 43 originales ni modificar favoritos o decisiones. Requiere conexión y acceso a los servidores públicos.</p>
           <button class="btn outline full" id="quickSpanish">Añadir español + Latinoamérica (sin duplicados)</button>
-          <p class="helptext">Si Safari bloquea la descarga, importa desde Archivos <code>spa.m3u</code> y <code>latam.m3u</code>. El botón detecta catálogos ya importados. No se ha verificado la reproducción de cada canal.</p>
+          <p class="helptext">Si tu navegador bloquea la descarga, importa desde Archivos <code>spa.m3u</code> y <code>latam.m3u</code>. El botón detecta catálogos ya importados. No se ha verificado la reproducción de cada canal.</p>
         </div>
         <div class="section-title"><h3>Listas guardadas</h3><span class="muted" id="playlistCount">0 listas</span></div>
         <div id="savedPlaylists" class="saved-lists"></div>
@@ -113,10 +113,10 @@
 
       <section class="screen" id="screen-settings" aria-label="Ajustes">
         <div class="section-intro"><h2>Configuración</h2><p>Privacidad, compatibilidad y copia de seguridad.</p></div>
-        <div class="panel"><h3>Compatibilidad con iPhone</h3><p class="muted">Mi IPTV reproduce señales compatibles con el video nativo de Safari, especialmente HLS (.m3u8). No reproduce automáticamente transmisiones con DRM, restricciones de región o formatos no admitidos.</p><p class="muted">La interfaz puede funcionar sin conexión una vez instalada, pero la televisión en directo requiere Internet. Los 43 canales incluidos tienen categorías orientativas sugeridas; no se ha verificado individualmente su reproducción.</p></div>
+        <div class="panel"><h3>Compatibilidad con iPhone</h3><p class="muted">Mi IPTV reproduce señales compatibles con el video nativo de Safari, especialmente HLS (.m3u8). No reproduce automáticamente transmisiones con DRM, restricciones de región o formatos no admitidos.</p><p class="muted">Con «Abrir en VLC» puedes intentar reproducir la dirección original de un canal en la app VLC instalada en tu iPhone. Si iOS no abre VLC desde el acceso directo, copia la dirección y pégala manualmente en VLC → Red → Abrir transmisión de red. No garantiza acceso a contenido restringido.</p><p class="muted">La interfaz puede funcionar sin conexión una vez instalada, pero la televisión en directo requiere Internet. Los 43 canales incluidos tienen categorías orientativas sugeridas; no se ha verificado individualmente su reproducción.</p></div>
         <div class="panel"><h3>Papelera recuperable</h3><p class="muted">Los canales que elimines se guardan aquí junto con su estado de Conservar/Quitar y favoritos. Puedes restaurarlos sin afectar el resto.</p><p id="trashCount" class="helptext">0 canales en papelera</p><div id="trashList" class="saved-lists"></div><button id="emptyTrash" class="btn danger">Vaciar papelera definitivamente</button></div>
-        <div class="panel"><h3>Copias de seguridad</h3><p class="muted">Las listas y tus decisiones se guardan localmente en este navegador. Exporta una copia si vas a cambiar de teléfono o borrar datos de Safari.</p><div class="stack"><button class="btn outline" id="backupBtn">Descargar copia de seguridad (.json)</button><label class="btn outline file-btn" for="restoreFile">Restaurar copia (.json)</label><input type="file" id="restoreFile" accept="application/json,.json" hidden></div></div>
-        <div class="panel"><h3>Instalar en la pantalla de inicio</h3><p class="muted">Una vez publicada en HTTPS, ábrela en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio».</p><p class="helptext" id="installStatus"></p></div>
+        <div class="panel"><h3>Copias de seguridad</h3><p class="muted">Las listas y tus decisiones se guardan localmente en este navegador. Exporta una copia si vas a cambiar de teléfono o borrar los datos de Chrome.</p><div class="stack"><button class="btn outline" id="backupBtn">Descargar copia de seguridad (.json)</button><label class="btn outline file-btn" for="restoreFile">Restaurar copia (.json)</label><input type="file" id="restoreFile" accept="application/json,.json" hidden></div></div>
+        <div class="panel"><h3>Instalar en la pantalla de inicio</h3><p class="muted">Una vez publicada en HTTPS, ábrela en un navegador compatible, pulsa Compartir y elige «Añadir a pantalla de inicio».</p><p class="helptext" id="installStatus"></p></div>
         <div class="panel danger-panel"><h3>Eliminar datos locales</h3><p class="muted">Esta acción borra las listas importadas, las selecciones y los favoritos almacenados en este navegador.</p><button class="btn danger" id="deleteAll">Borrar mis datos</button></div>
       </section>
     </main>
@@ -134,11 +134,12 @@
     <div class="player-head"><div><h2 id="playerTitle">Canal</h2><p id="playerSubtitle">Transmisión en directo</p></div><button id="closePlayer" class="iconbtn" aria-label="Cerrar reproductor">×</button></div>
     <div class="player-box"><video id="video" controls playsinline webkit-playsinline preload="none"></video><div id="playStatus" class="play-status hidden" role="status"></div></div>
     <div class="player-controls"><button id="previousChannel" class="btn outline">← Anterior</button><button id="nextChannel" class="btn outline">Siguiente →</button></div>
+    <div class="vlc-actions"><a id="openVLC" class="btn vlc-cta" href="#" data-external-vlc="current">▶ Abrir este canal en VLC</a><p class="vlc-help">Para señales que no se ven en Chrome. Debes tener VLC instalado; si no se abre, utiliza «Copiar dirección de transmisión».</p></div>
     <div class="player-controls"><button id="playerFavorite" class="btn outline">♡ Favorito</button><button id="playerKeep" class="btn outline">✓ Conservar</button><button id="playerRemove" class="btn outline">× Quitar</button></div>
     <div class="player-foot"><button id="copyStream" class="linkbtn">Copiar dirección de transmisión</button></div>
   </section>
   <div class="toast hidden" role="status" id="toast"></div>
   <script src="./demo.js"></script>
-  <script src="./app.js?v=1.3" defer></script>
+  <script src="./app.js?v=1.4" defer></script>
 </body>
 </html>

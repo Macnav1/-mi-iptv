@@ -8,3 +8,11 @@
 .visibility-switch input{accent-color:#3e87f7;width:19px;height:19px}
 #trashList .playlist-row{gap:10px}
 #formManual input{width:100%}
+
+/* Mi IPTV 1.4: salida opcional hacia VLC, sin alterar las selecciones del canal. */
+.manage-actions{flex-wrap:wrap}
+a.smallbtn.vlc-link{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;background:#164b77;color:#e0f4ff;border:1px solid #388ccc;font-weight:750;min-height:36px;padding:8px 12px;border-radius:9px}
+a.smallbtn.vlc-link:focus-visible,.vlc-cta:focus-visible{outline:2px solid #b3edff;outline-offset:3px}
+.vlc-actions{display:grid;gap:5px;margin-top:12px}
+.vlc-cta{text-decoration:none;background:#12659f;color:#fff;border:1px solid #379dd9;width:100%;min-height:46px}
+.vlc-help{color:var(--muted);font-size:11px;line-height:1.5;margin:2px 3px 7px}

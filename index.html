@@ -11,15 +11,15 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1.7">
-  <title>Mi IPTV V1.7 · Guía de programación</title>
+  <link rel="stylesheet" href="./styles.css?v=1.7.1">
+  <title>Mi IPTV V1.7.1 · Guía de programación</title>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
       <div class="branding"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor"/></svg></div><div><h1>Mi IPTV</h1><span>Tu televisión, tus listas</span></div></div>
       <div class="header-tools">
-        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.7</strong></span>
+        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.7.1</strong></span>
         <button class="header-add" data-go="playlists" type="button"><span aria-hidden="true">+</span> Nueva lista</button>
         <button class="iconbtn" id="settingsTop" aria-label="Configuración" title="Configuración">⚙</button>
       </div>
@@ -144,7 +144,7 @@
           <select id="epgPreset" class="epg-select"><option value="mx">México · IPTV-EPG</option><option value="es">España · IPTV-EPG</option><option value="ar">Argentina · IPTV-EPG</option><option value="cl">Chile · IPTV-EPG</option><option value="co">Colombia · IPTV-EPG</option><option value="custom">Dirección XMLTV personalizada</option></select>
           <label class="formlabel" for="epgUrl">URL XMLTV (HTTPS)</label><input type="url" id="epgUrl" class="epg-input" placeholder="https://servidor/guia.xml" inputmode="url">
           <div class="action-row epg-actions"><button type="button" class="btn primary" id="epgLoad">Actualizar guía</button><label class="btn outline epg-file-label" for="epgFile">Importar XMLTV desde Archivos</label><input id="epgFile" type="file" accept=".xml,.xmltv,.gz,.xml.gz,text/xml,application/xml,application/gzip" hidden></div>
-          <p class="helptext">Puedes importar archivos <code>.xml</code> o <code>.xml.gz</code>. Si un servidor bloquea la descarga (CORS), usa «Importar XMLTV desde Archivos». La guía se conserva temporalmente en este navegador; no modifica tus listas ni favoritos.</p>
+          <p class="helptext">Puedes importar archivos <code>.xml</code> o <code>.xml.gz</code>. Si un servidor bloquea la descarga (CORS), usa «Importar XMLTV desde Archivos». La guía se guarda en formato ligero. Al actualizar desde V1.7, tendrás que cargar la EPG una vez; tus canales y favoritos no cambian.</p>
           <p id="epgStatus" class="epg-info" role="status">Aún no hay una guía cargada.</p>
           <p id="epgCoverage" class="helptext">No se han asociado canales.</p>
           <button id="epgClear" type="button" class="smallbtn">Quitar guía cargada</button>
@@ -198,6 +198,6 @@
   </section>
   <div class="toast hidden" role="status" id="toast"></div>
   <script src="./demo.js"></script>
-  <script src="./app.js?v=1.7" defer></script>
+  <script src="./app.js?v=1.7.1" defer></script>
 </body>
 </html>

@@ -11,15 +11,15 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1.5.2">
-  <title>Mi IPTV V1.5.2 · Inicio renovado</title>
+  <link rel="stylesheet" href="./styles.css?v=1.6">
+  <title>Mi IPTV V1.6 · Experiencia TV</title>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
       <div class="branding"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor"/></svg></div><div><h1>Mi IPTV</h1><span>Tu televisión, tus listas</span></div></div>
       <div class="header-tools">
-        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.5.2</strong></span>
+        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.6</strong></span>
         <button class="header-add" data-go="playlists" type="button"><span aria-hidden="true">+</span> Nueva lista</button>
         <button class="iconbtn" id="settingsTop" aria-label="Configuración" title="Configuración">⚙</button>
       </div>
@@ -37,33 +37,29 @@
     </aside>
     <main id="main" tabindex="-1">
       <section class="screen active" id="screen-home" aria-label="Inicio">
-        <div class="welcome">
-          <div class="welcome-copy">
-            <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> TU BIBLIOTECA DE TELEVISIÓN</p>
-            <h2>Todo lo que te gusta ver.<br><span>En un mismo lugar.</span></h2>
-            <p>Explora tus listas, prueba transmisiones y organiza tu televisión como prefieras.</p>
-            <div class="hero-search"><span aria-hidden="true">⌕</span><input id="homeSearch" type="search" placeholder="Buscar un canal..." autocomplete="off" aria-label="Buscar canales desde inicio"><button id="homeSearchGo" type="button">Buscar →</button></div>
-            <div class="welcome-actions">
-              <button class="btn primary" data-go="explore">Explorar todos los canales <span aria-hidden="true">→</span></button>
-              <button class="btn hero-secondary" data-go="playlists">+ Agregar lista</button>
-            </div>
+        <div class="spotlight" id="spotlight" aria-label="Canal destacado">
+          <div class="spotlight-copy">
+            <p class="eyebrow"><span class="live-dot"></span> TU TELEVISIÓN PERSONAL</p>
+            <p class="spotlight-kicker" id="spotlightKicker">PARA VOLVER A VER</p>
+            <h2 id="spotlightName">Elige tu próximo canal</h2>
+            <p id="spotlightMeta">Tus canales favoritos y categorías, a un clic.</p>
+            <div class="spotlight-actions"><button type="button" class="btn primary spotlight-watch" id="spotlightPlay">▶ Ver canal</button><button class="btn outline" data-go="explore" type="button">Explorar canales</button></div>
           </div>
-          <div class="hero-art" aria-hidden="true"><div class="hero-glow"></div><div class="hero-tv"><div class="hero-play">▶</div><span>MI IPTV</span></div><div class="hero-live"><span></span> TU CANAL, TUS REGLAS</div></div>
+          <div class="spotlight-art" aria-hidden="true"><span class="spotlight-glow"></span><div class="spotlight-screen"><span id="spotlightLogo">TV</span></div><span class="spotlight-caption">MI IPTV · EN DIRECTO</span></div>
         </div>
-        <div class="home-section-label"><span>DE UN VISTAZO</span><span>Tu contenido organizado</span></div>
-        <div class="stats-grid" id="home-stats" aria-label="Resumen de canales"></div>
-        <div class="section-title"><h3>Accesos rápidos</h3><span class="section-subtitle">Continúa donde prefieras</span></div>
-        <div class="quick-grid">
-          <button class="quick-tile" data-home-shortcut="favorite" type="button"><span class="quick-icon qi-pink">♥</span><span><strong>Favoritos</strong><small id="quickFavoriteCount">Tus canales preferidos</small></span><span class="quick-arrow">↗</span></button>
-          <button class="quick-tile" data-home-shortcut="keep" type="button"><span class="quick-icon qi-green">✓</span><span><strong>Conservados</strong><small id="quickKeepCount">Tu selección</small></span><span class="quick-arrow">↗</span></button>
-          <button class="quick-tile" data-home-shortcut="pending" type="button"><span class="quick-icon qi-blue">⌕</span><span><strong>Por revisar</strong><small id="quickPendingCount">Canales pendientes</small></span><span class="quick-arrow">↗</span></button>
-        </div>
-        <div class="section-title"><h3>Mis favoritos</h3><button class="linkbtn" data-home-shortcut="favorite">Ver todos →</button></div>
-        <div id="home-favorites" class="home-favorites"></div>
-        <div class="section-title"><h3>Explorar por categoría</h3><button class="linkbtn" data-go="explore">Ver todas →</button></div>
-        <div class="category-grid" id="home-categories"></div>
-        <div class="section-title"><h3>Mis listas</h3><button class="linkbtn" data-go="playlists">Administrar →</button></div>
-        <div id="home-playlists" class="home-playlists"></div>
+        <div class="home-search-row"><label class="search-wrap" for="homeSearch"><span aria-hidden="true">⌕</span><input id="homeSearch" type="search" placeholder="Buscar un canal por nombre, país o categoría" autocomplete="off"></label><button id="homeSearchGo" class="btn outline" type="button">Buscar</button></div>
+        <div class="home-chips" id="homeCategoryChips" aria-label="Categorías de televisión"></div>
+        <div class="rail-head"><div><h3>Seguir viendo</h3><p>Los últimos canales que abriste</p></div></div><div class="channel-rail" id="home-recent"></div>
+        <div class="rail-head"><div><h3>Mis favoritos</h3><p>Tu selección de canales preferidos</p></div><button class="linkbtn" data-home-shortcut="favorite">Ver todos →</button></div><div class="channel-rail" id="home-favorites"></div>
+        <div class="rail-head"><div><h3>Canales conservados</h3><p>Los canales que elegiste mantener</p></div><button class="linkbtn" data-home-shortcut="keep">Ver todos →</button></div><div class="channel-rail" id="home-kept"></div>
+        <div id="home-streaming-rails"></div>
+        <div class="home-library-footer"><div class="section-title"><h3>Tu biblioteca</h3><button data-go="playlists" class="linkbtn">Administrar listas →</button></div><div class="stats-grid" id="home-stats"></div><div class="category-grid" id="home-categories"></div><div id="home-playlists" class="home-playlists"></div></div>
+      </section>
+
+      <section class="screen" id="screen-category" aria-label="Canales por categoría">
+        <div class="category-page-head"><button class="btn outline" type="button" data-go="home">← Inicio</button><div><p class="eyebrow">EXPLORAR CANALES</p><h2 id="categoryBrowseTitle">Categoría</h2><p id="categoryBrowseCount" class="muted"></p></div><button class="btn outline" id="categoryAllExplore" type="button">Filtros avanzados</button></div>
+        <div class="category-page-grid" id="categoryBrowseGrid"></div>
+        <div class="category-pager"><button id="categoryMore" type="button" class="btn outline hidden">Mostrar más canales</button></div>
       </section>
 
       <section class="screen" id="screen-explore" aria-label="Explorar canales">
@@ -158,16 +154,31 @@
   </div>
 
   <div id="playerBackdrop" class="modal-backdrop hidden" role="presentation"></div>
-  <section id="playerModal" class="player-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
-    <div class="player-head"><div><h2 id="playerTitle">Canal</h2><p id="playerSubtitle">Transmisión en directo</p></div><button id="closePlayer" class="iconbtn" aria-label="Cerrar reproductor">×</button></div>
-    <div class="player-box"><video id="video" controls playsinline webkit-playsinline preload="none"></video><div id="playStatus" class="play-status hidden" role="status"></div></div>
-    <div class="player-controls"><button id="previousChannel" class="btn outline">← Anterior</button><button id="nextChannel" class="btn outline">Siguiente →</button></div>
-    <div class="vlc-actions"><a id="openVLC" class="btn vlc-cta" href="#" data-external-vlc="current">▶ Abrir en VLC (directo)</a><a id="openVLCLegacy" class="btn outline hidden" href="#" data-external-vlc="current">↗ Otra apertura en VLC (prueba)</a><button id="shareVLCCurrent" class="btn outline hidden" type="button" data-share-vlc="current">↥ Compartir archivo M3U</button><button id="downloadVLCPc" type="button" class="btn vlc-cta hidden" data-download-vlc="current">↓ Descargar para VLC (computadora)</button><p id="vlcHelp" class="vlc-help">Si la apertura directa no inicia el video, comparte el M3U o cópialo a VLC desde Archivos.</p></div>
-    <div class="player-controls"><button id="playerFavorite" class="btn outline">♡ Favorito</button><button id="playerKeep" class="btn outline">✓ Conservar</button><button id="playerRemove" class="btn outline">× Quitar</button></div>
-    <div class="player-foot"><button id="copyStream" class="linkbtn">Copiar dirección de transmisión</button></div>
+  <section id="playerModal" class="player-modal player-theater hidden" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
+    <div class="player-head"><div class="player-heading"><p class="eyebrow"><span class="live-dot"></span> EN DIRECTO · MI IPTV</p><h2 id="playerTitle">Canal</h2><p id="playerSubtitle">Transmisión en directo</p></div><button id="closePlayer" class="iconbtn" aria-label="Cerrar reproductor">×</button></div>
+    <div class="theater-grid">
+      <div class="theater-main">
+        <div class="player-box"><video id="video" controls playsinline webkit-playsinline preload="none"></video><div id="playStatus" class="play-status hidden" role="status"></div></div>
+        <div class="tv-remote" aria-label="Control remoto para cambiar de canal">
+          <div class="remote-step"><button id="previousChannel" type="button" class="remote-button" title="Canal anterior" aria-label="Canal anterior">−</button><div><span class="remote-label">CANAL</span><strong id="remoteChannelNumber">1 / 1</strong></div><button id="nextChannel" type="button" class="remote-button" title="Siguiente canal" aria-label="Siguiente canal">+</button></div>
+          <button type="button" class="remote-favorite" id="playerFavorite">♡ Favorito</button>
+          <button type="button" class="remote-fullscreen" id="playerFullscreen" title="Pantalla completa">⛶ <span>Pantalla completa</span></button>
+        </div>
+        <div class="player-controls player-decisions"><button id="playerKeep" class="btn outline" type="button">✓ Conservar</button><button id="playerRemove" class="btn outline" type="button">× Quitar</button></div>
+        <details class="player-advanced"><summary>Más opciones de reproducción</summary><div class="vlc-actions"><a id="openVLC" class="btn vlc-cta" href="#" data-external-vlc="current">▶ Abrir en VLC (directo)</a><a id="openVLCLegacy" class="btn outline hidden" href="#" data-external-vlc="current">↗ Otra apertura en VLC</a><button id="shareVLCCurrent" class="btn outline hidden" type="button" data-share-vlc="current">↥ Compartir M3U</button><button id="downloadVLCPc" type="button" class="btn vlc-cta hidden" data-download-vlc="current">↓ Archivo para VLC</button><button id="copyStream" type="button" class="btn outline">Copiar dirección</button><p id="vlcHelp" class="vlc-help">Si la señal no funciona aquí, prueba con VLC.</p></div></details>
+      </div>
+      <aside class="theater-side" aria-label="Lista de canales para cambiar sin cerrar">
+        <h3>Explora mientras ves</h3><p class="muted">Cambia de canal sin salir del reproductor.</p>
+        <label class="theater-label" for="playerChannelGroup">Categoría o selección</label><select id="playerChannelGroup" class="theater-select"></select>
+        <label class="theater-label" for="playerChannelSearch">Buscar dentro de esta categoría</label><input type="search" id="playerChannelSearch" class="theater-search" placeholder="Buscar canal…" autocomplete="off">
+        <p id="playerChannelCount" class="theater-count" aria-live="polite"></p>
+        <div id="playerChannelItems" class="theater-channels"></div>
+        <p class="theater-hint">Usa − / + para cambiar de canal. También puedes pulsar otro canal de la lista.</p>
+      </aside>
+    </div>
   </section>
   <div class="toast hidden" role="status" id="toast"></div>
   <script src="./demo.js"></script>
-  <script src="./app.js?v=1.5.2" defer></script>
+  <script src="./app.js?v=1.6" defer></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE='mi-iptv-app-v1-5-2-design-20261028';
+const CACHE='mi-iptv-app-v1-6-tv-20261028';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./demo.js','./icon-192.png','./icon-512.png','./manifest.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));self.skipWaiting();});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))));self.clients.claim();});

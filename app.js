@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const $ = id => document.getElementById(id);
- const KEY = 'mi-iptv-v1-state';
+ const KEY = 'mi-iptv-v1-state'; // Clave conservada para preservar listas, favoritos y selecciones.
  const PAGE = 50;
  const state = {playlists:[], channels:[], trash:[]};
  let explorePage=1,savedPage=1,decisionFilter='all', savedFilter='keep', activeList=[],playerIndex=0,playerChannelId=null,toastTimer=0,saveTimer=0,db=null,showHidden=false;
@@ -13,8 +13,16 @@
  const norm = s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const safeUrl = s=>{try{const u=new URL(String(s).trim());return ['http:','https:'].includes(u.protocol)?u.href:''}catch{return ''}};
  const streamUrl = s=>{try{const u=new URL(String(s).trim());return ['http:','https:','rtsp:','rtmp:','udp:'].includes(u.protocol)?u.href:''}catch{return ''}};
- // VLC para iOS: enlace directo documentado por VideoLAN. No modifica ni descarga la señal.
+ // Dos mecanismos de apertura de VLC para iOS. No se puede verificar la reproducción desde el navegador.
  const vlcLink = s => {const url=streamUrl(s);return url?'vlc-x-callback://x-callback-url/stream?url='+encodeURIComponent(url):''};
+ // Alternativa histórica documentada por VLC para iOS. Requiere comprobación en el dispositivo.
+ const vlcLegacyLink = s => {const url=streamUrl(s);return url?'vlc:///stream?url='+encodeURIComponent(url):''};
+ // Los esquemas de VLC para iOS no están registrados automáticamente en Windows o macOS.
+ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+ const desktopVlcControls = c=>`<button type="button" class="smallbtn vlc-link" data-download-vlc="${esc(c.id)}">↓ Archivo para VLC</button><button type="button" class="smallbtn" data-copy-url="${esc(c.id)}">Copiar URL</button>`;
+ const deviceVlcControls = c=>isIOS?`<a class="smallbtn vlc-link" href="${esc(vlcLink(c.url)||'#')}" data-external-vlc="${esc(c.id)}" aria-label="Abrir ${esc(c.name)} en VLC">▶ Abrir en VLC</a><button type="button" class="smallbtn vlc-link" data-share-vlc="${esc(c.id)}">↥ Compartir M3U</button><button type="button" class="smallbtn" data-copy-url="${esc(c.id)}">Copiar URL</button>`:desktopVlcControls(c);
+ async function copyStreamAddress(c){if(!c||!streamUrl(c.url)){toast('Dirección de transmisión no válida.');return;}try{await navigator.clipboard.writeText(c.url);toast('Dirección copiada. Pégala en VLC → Abrir ubicación de red.')}catch{prompt('Copia esta dirección y pégala en VLC:',c.url)}}
+
  const initialCategories={'CanalOnce.mx':'Cultura','Lasestrellas.tv':'Entretenimiento','ADNNoticias.mx':'Noticias','TeleFormula.mx':'Noticias','Canal6Multimedios.mx':'Televisión general','QuieroTV.mx':'Televisión general','MexicoTravelTV.mx':'Viajes','EstrellaTV.mx':'Entretenimiento','Tele10Nayarit.mx':'Televisión general','noticiasnrt.com':'Televisión general','La1.es':'Televisión general','La2.es':'Cultura','24h.es':'Noticias','tdp.es':'Deportes','clan.es':'Infantiles','Telemadrid.es':'Televisión general','LaOtra.es':'Televisión general','CanalSurAndalucia.es':'Televisión general','Divinity.es':'Series','Energy.es':'Series','BeMad.es':'Entretenimiento','Aunar.ar':'Cultura','CineAr.ar':'Películas','TECTV.ar':'Educación','DeporTV.ar':'Deportes','Canal26.ar':'Noticias','MasPerfil.ar':'Noticias','Telemax.ar':'Televisión general','NETTV.ar':'Televisión general','TVUniversidad.ar':'Educación','ElTrece.ar':'Televisión general','AmericaTV.ar':'Televisión general','UCVTV.cl':'Televisión general','24Horas.cl':'Noticias','Canal13.cl':'Televisión general','UChileTV.cl':'Cultura','T13.cl':'Noticias','13C.cl':'Cultura','13Kids.cl':'Infantiles','13E.cl':'Entretenimiento','TVN3.cl':'Televisión general','mega.cl':'Televisión general','biobiochile.cl':'Noticias'};
  const textCountry = value => {const x=String(value||'').trim();if(!x)return ''; const first=x.split(/[;,]/)[0].trim();return countryAlias[first.toLowerCase()]||countryNames[first.toUpperCase()]||(/^[A-Z]{2}$/.test(first)?first:first)};
  const catName = raw => {let r=String(raw||'').trim();return nativeCategories[r.toLowerCase()]||r||'Sin categoría'};
@@ -36,6 +44,14 @@
        meta={name, country:country||'Sin país', category:catName(category),logo:safeUrl(attrs['tvg-logo']),tvgId:attrs['tvg-id']||'',language:attrs['tvg-language']||'',group,rawExtinf:line};
        continue;
      }
+     if(meta && /^#EXTVLCOPT:/i.test(line)){
+       const opt=line.slice('#EXTVLCOPT:'.length);
+       // No ejecutar ni aceptar opciones arbitrarias importadas por el usuario.
+       if(/^(?:http-user-agent|http-referrer)=/i.test(opt) && !/[\r\n]/.test(opt)){
+         (meta.vlcOptions??=[]).push(opt);
+       }
+       continue;
+     }
      if(line.startsWith('#'))continue;
      const url=streamUrl(line);
      if(meta && url){channels.push({...meta,url,playlistId,id:playlistId+'-'+channels.length.toString(36),decision:'pending',favorite:false});meta=null;}
@@ -53,7 +69,12 @@
  function countryOptions(){return [...new Set(state.channels.map(c=>c.country))].sort((x,y)=>x.localeCompare(y,'es'))}
  function categoryOptions(){return [...new Set(state.channels.map(c=>c.category))].sort((x,y)=>x.localeCompare(y,'es'))}
  function optOptions(el,items,first){const selected=el.value;el.innerHTML=`<option value="">${esc(first)}</option>`+items.map(item=>`<option value="${esc(item.id??item)}">${esc(item.name??item)}</option>`).join('');if([...el.options].some(o=>o.value===selected))el.value=selected}
- function renderHome(){const co=counts();$('home-stats').innerHTML=statsHtml([[co.total,'Canales registrados'],[co.keep,'Conservar'],[co.favorite,'Favoritos']]);const groups={};for(const c of state.channels)groups[c.category]=(groups[c.category]||0)+1;
+ function renderHome(){const co=counts();$('home-stats').innerHTML=statsHtml([[co.total,'Canales registrados'],[co.keep,'Conservados'],[co.favorite,'Favoritos']]);const groups={};for(const c of state.channels)groups[c.category]=(groups[c.category]||0)+1;
+   $('quickFavoriteCount').textContent=co.favorite.toLocaleString('es-MX')+' canales';
+   $('quickKeepCount').textContent=co.keep.toLocaleString('es-MX')+' canales';
+   $('quickPendingCount').textContent=co.pending.toLocaleString('es-MX')+' canales';
+   const fav=state.channels.filter(c=>c.favorite&&!c.hidden).slice(0,8);
+   $('home-favorites').innerHTML=fav.length?fav.map(c=>`<button type="button" class="home-favorite" data-play="${esc(c.id)}" aria-label="Reproducir ${esc(c.name)}"><span class="mini-channel-logo">${c.logo?`<img loading="lazy" src="${esc(c.logo)}" alt="" onerror="this.replaceWith(document.createTextNode('TV'))">`:'TV'}</span><span class="home-fav-name">${esc(c.name)}</span><small>${esc(c.country||'Canal')}</small><span class="mini-play">▶</span></button>`).join(''):'<div class="favorite-empty"><span aria-hidden="true">♡</span><div><strong>Tus favoritos aparecerán aquí</strong><p>Marca el corazón de cualquier canal para encontrarlo rápidamente.</p></div><button type="button" class="smallbtn" data-go="explore">Explorar →</button></div>';
    $('home-categories').innerHTML=(Object.entries(groups).sort((x,y)=>y[1]-x[1]).slice(0,12).map(([cat,n])=>`<button class="category-tile" data-category="${esc(cat)}"><span class="glyph">${icons[cat]||'📺'}</span><span><b>${esc(cat)}</b><small>${n.toLocaleString('es-MX')} canales</small></span></button>`).join(''))||'<div class="empty">Sin categorías todavía.</div>';
    $('home-playlists').innerHTML=state.playlists.map(p=>`<div class="playlist-row"><div><h4>${esc(p.name)}</h4><p>${p.count.toLocaleString('es-MX')} canales</p></div><button class="smallbtn" data-openlist="${esc(p.id)}">Ver →</button></div>`).join('')||'<div class="empty">Importa tu primera lista para empezar.</div>';
  }
@@ -61,7 +82,7 @@
    return state.channels.filter(c=>(showHidden||!c.hidden)&&(!list||c.playlistId===list)&&(!country||c.country===country)&&(!cat||c.category===cat)&&(!search||norm(c.name+' '+c.country+' '+c.category).includes(search))&&(decisionFilter==='all'||(decisionFilter==='favorite'?c.favorite:c.decision===decisionFilter)));
  }
  function cardHtml(c){const p=state.playlists.find(p=>p.id===c.playlistId);let img=c.logo?`<img class="channel-logo" loading="lazy" alt="" src="${esc(c.logo)}" onerror="this.outerHTML='<span class=&quot;channel-logo fake&quot;>TV</span>'">`:'<span class="channel-logo fake">TV</span>';
-   return `<article class="channel-card ${c.hidden?'channel-hidden':''}" data-cid="${esc(c.id)}"><div class="channel-first">${img}<div style="min-width:0;flex:1"><div class="channel-name">${esc(c.name)}${c.hidden?' <small>(Oculto)</small>':''}</div><div class="channel-info">${esc(c.country)} · ${esc(c.category)}${c.categoryOrigin?' (sugerida)':''}${p?' · '+esc(p.name):''}</div></div><button class="playbtn" data-play="${esc(c.id)}" aria-label="Reproducir ${esc(c.name)}">▶</button></div><div class="channel-actions"><button data-decision="keep" class="choicebtn keep ${c.decision==='keep'?'active':''}" aria-pressed="${c.decision==='keep'}">✓ Conservar</button><button data-decision="remove" class="choicebtn remove ${c.decision==='remove'?'active':''}" aria-pressed="${c.decision==='remove'}">× Quitar</button><button data-favorite class="choicebtn favorite ${c.favorite?'active':''}" aria-pressed="${c.favorite}" aria-label="Favorito">${c.favorite?'♥':'♡'}</button></div><div class="manage-actions"><button data-hide aria-pressed="${!!c.hidden}" class="smallbtn">${c.hidden?'◉ Mostrar':'◌ Ocultar'}</button><button data-trash class="smallbtn red" aria-label="Enviar ${esc(c.name)} a la papelera">Eliminar…</button><a class="smallbtn vlc-link" href="${esc(vlcLink(c.url)||'#')}" data-external-vlc="${esc(c.id)}" aria-label="Abrir ${esc(c.name)} en VLC">▶ Abrir en VLC</a></div></article>`;
+   return `<article class="channel-card ${c.hidden?'channel-hidden':''}" data-cid="${esc(c.id)}"><div class="channel-first">${img}<div style="min-width:0;flex:1"><div class="channel-name">${esc(c.name)}${c.hidden?' <small>(Oculto)</small>':''}</div><div class="channel-info">${esc(c.country)} · ${esc(c.category)}${c.categoryOrigin?' (sugerida)':''}${p?' · '+esc(p.name):''}</div></div><button class="playbtn" data-play="${esc(c.id)}" aria-label="Reproducir ${esc(c.name)}">▶</button></div><div class="channel-actions"><button data-decision="keep" class="choicebtn keep ${c.decision==='keep'?'active':''}" aria-pressed="${c.decision==='keep'}">✓ Conservar</button><button data-decision="remove" class="choicebtn remove ${c.decision==='remove'?'active':''}" aria-pressed="${c.decision==='remove'}">× Quitar</button><button data-favorite class="choicebtn favorite ${c.favorite?'active':''}" aria-pressed="${c.favorite}" aria-label="Favorito">${c.favorite?'♥':'♡'}</button></div><div class="manage-actions"><button data-hide aria-pressed="${!!c.hidden}" class="smallbtn">${c.hidden?'◉ Mostrar':'◌ Ocultar'}</button><button data-trash class="smallbtn red" aria-label="Enviar ${esc(c.name)} a la papelera">Eliminar…</button>${deviceVlcControls(c)}</div></article>`;
  }
  function pager(root,total,page,kind){const pageCount=Math.max(1,Math.ceil(total/PAGE));root.innerHTML=total>PAGE?`<button data-page="${kind}" data-value="${page-1}" ${page<=1?'disabled':''}>← Anterior</button><span>Página ${page.toLocaleString('es-MX')} de ${pageCount.toLocaleString('es-MX')}</span><button data-page="${kind}" data-value="${page+1}" ${page>=pageCount?'disabled':''}>Siguiente →</button>`:''}
  function renderExplore(){optOptions($('listFilter'),state.playlists,'Todas las listas');optOptions($('countryFilter'),countryOptions(),'Todos los países');optOptions($('categoryFilter'),categoryOptions(),'Todas las categorías');
@@ -90,18 +111,49 @@
  function updatePlayerButtons(){const c=state.channels.find(x=>x.id===playerChannelId);if(!c)return;$('playerFavorite').textContent=(c.favorite?'♥ Quitar favorito':'♡ Favorito');$('playerKeep').textContent=c.decision==='keep'?'✓ Conservado':'✓ Conservar';$('playerRemove').textContent=c.decision==='remove'?'× Quitado':'× Quitar'}
  function showPlayer(id){const c=state.channels.find(x=>x.id===id);if(!c)return;playerChannelId=id;
    let pool=matchesExplore();if(!pool.some(x=>x.id===id))pool=state.channels.filter(x=>x.playlistId===c.playlistId);activeList=pool.map(x=>x.id);playerIndex=activeList.indexOf(id);
-   $('playerTitle').textContent=c.name;$('playerSubtitle').textContent=c.country+' · '+c.category;$('playerBackdrop').classList.remove('hidden');$('playerModal').classList.remove('hidden');$('playStatus').classList.add('hidden');$('openVLC').href=vlcLink(c.url)||'#';updatePlayerButtons();
-   const v=$('video');v.pause();v.removeAttribute('src');v.load();if(!safeUrl(c.url)){$('playStatus').textContent='Esta señal no es compatible con el reproductor web. Pulsa «Abrir en VLC» para probarla allí.';$('playStatus').classList.remove('hidden');return;}v.src=c.url;v.load();const p=v.play();if(p?.catch)p.catch(()=>{$('playStatus').textContent='Pulsa ▶ para iniciar o prueba «Abrir en VLC» si no funciona en Chrome.';$('playStatus').classList.remove('hidden')});
+   $('playerTitle').textContent=c.name;$('playerSubtitle').textContent=c.country+' · '+c.category;$('playerBackdrop').classList.remove('hidden');$('playerModal').classList.remove('hidden');$('playStatus').classList.add('hidden');$('openVLC').href=vlcLink(c.url)||'#';$('openVLCLegacy').href=vlcLegacyLink(c.url)||'#';$('openVLC').classList.toggle('hidden',!isIOS);$('openVLCLegacy').classList.toggle('hidden',!isIOS);$('shareVLCCurrent').classList.toggle('hidden',!isIOS);$('downloadVLCPc').classList.toggle('hidden',isIOS);$('vlcHelp').textContent=isIOS?'Si VLC se abre sin video, prueba «Otra apertura» o «Compartir M3U». Desde Archivos también puedes abrir el M3U en VLC. Estas opciones no garantizan que la señal funcione.':'Descarga el archivo M3U del canal y ábrelo con VLC. O copia la URL y pégala en VLC → Medio → Abrir ubicación de red (Ctrl+N en Windows, Archivo → Abrir red en Mac).';updatePlayerButtons();
+   const v=$('video');v.pause();v.removeAttribute('src');v.load();if(!safeUrl(c.url)){$('playStatus').textContent='Esta señal no es compatible con el reproductor web. Puedes probarla en VLC o mediante un archivo M3U.';$('playStatus').classList.remove('hidden');return;}if(location.protocol==='https:' && c.url.startsWith('http:')){$('playStatus').textContent='El navegador puede bloquear esta transmisión HTTP desde una página HTTPS. Prueba VLC o comparte el M3U.';$('playStatus').classList.remove('hidden');}v.src=c.url;v.load();const p=v.play();if(p?.catch)p.catch(()=>{$('playStatus').textContent='Pulsa ▶ para iniciar o prueba «Abrir en VLC» si no funciona en Chrome.';$('playStatus').classList.remove('hidden')});
  }
  function closePlayer(){const v=$('video');v.pause();v.removeAttribute('src');v.load();$('playerBackdrop').classList.add('hidden');$('playerModal').classList.add('hidden');playerChannelId=null}
  function jumpPlayer(dir){if(!activeList.length)return;const i=(playerIndex+dir+activeList.length)%activeList.length;showPlayer(activeList[i]);playerIndex=i}
  function download(name,content,type){const blob=new Blob([content],{type:type||'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+ function channelM3UForVLC(c){
+   const u=streamUrl(c?.url);if(!u)return null;
+   const name=String(c.name||'Canal').replace(/[\r\n]/g,' ').trim()||'Canal';
+   const filename='Mi_IPTV_'+name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,60)+'.m3u';
+   const info='#EXTINF:-1 tvg-id="'+String(c.tvgId||'').replace(/["\r\n]/g,'')+'" group-title="'+String(c.group||c.category||'').replace(/["\r\n]/g,'')+'",'+name;
+   const options=(Array.isArray(c.vlcOptions)?c.vlcOptions:[]).filter(x=>/^(?:http-user-agent|http-referrer)=/i.test(x) && !/[\r\n]/.test(x)).map(x=>'#EXTVLCOPT:'+x);
+   return {filename,content:['#EXTM3U',info,...options,u,''].join('\n')};
+ }
+ function downloadChannelForVLC(c){
+   const playlist=channelM3UForVLC(c);if(!playlist){toast('Este canal no tiene una dirección válida.');return;}
+   download(playlist.filename,playlist.content,'application/x-mpegURL;charset=utf-8');
+   toast('Archivo M3U descargado. Ábrelo desde Archivos con VLC.');
+ }
+ function shareChannelForVLC(c){
+   const playlist=channelM3UForVLC(c);if(!playlist){toast('Este canal no tiene una dirección válida.');return;}
+   const file=new File([playlist.content],playlist.filename,{type:'application/x-mpegURL'});
+   // navigator.share debe invocarse directamente durante el clic del usuario.
+   if(typeof navigator.share==='function' && typeof navigator.canShare==='function' && navigator.canShare({files:[file]})){
+     navigator.share({files:[file],title:'Abrir canal en VLC'}).catch(err=>{
+       if(err?.name==='AbortError')return;
+       downloadChannelForVLC(c);
+       toast('No se pudo compartir. Se descargó el archivo M3U.');
+     });
+   }else{
+     downloadChannelForVLC(c);
+   }
+ }
  function exportM3U(which){const items=state.channels.filter(c=>which==='favorite'?c.favorite:c.decision==='keep');if(!items.length){toast('No hay canales seleccionados para exportar.');return}
    const rows=['#EXTM3U','# Exportado desde Mi IPTV. La reproducción de las señales no está garantizada.'];for(const c of items){let metadata=`tvg-id="${String(c.tvgId).replace(/"/g,'')}" tvg-logo="${c.logo.replace(/"/g,'')}" group-title="${c.group.replace(/"/g,'')}"`;rows.push(`#EXTINF:-1 ${metadata},${c.name.replace(/[\r\n]/g,' ')}`,c.url)}download(`Mi_IPTV_${which==='favorite'?'Favoritos':'Conservados'}_${new Date().toISOString().slice(0,10)}.m3u`,rows.join('\n')+'\n','application/x-mpegURL;charset=utf-8');toast(`${items.length.toLocaleString('es-MX')} canales exportados`)}
  function setupEvents(){document.body.addEventListener('click',event=>{
    const external=event.target.closest('a[data-external-vlc]');
    if(external){if(external.getAttribute('href')==='#'){event.preventDefault();toast('Este canal no tiene una dirección de transmisión válida.');return;}if(playerChannelId){$('video').pause();}return;}
    const b=event.target.closest('button');if(!b)return;
+   if(b.dataset.shareVlc){const id=b.dataset.shareVlc==='current'?playerChannelId:b.dataset.shareVlc;const c=state.channels.find(x=>x.id===id);if(c){if(playerChannelId)$('video').pause();shareChannelForVLC(c)}return}
+   if(b.dataset.downloadVlc){const id=b.dataset.downloadVlc==='current'?playerChannelId:b.dataset.downloadVlc;const c=state.channels.find(x=>x.id===id);if(c){if(playerChannelId)$('video').pause();downloadChannelForVLC(c)}return}
+   if(b.dataset.copyUrl){const id=b.dataset.copyUrl==='current'?playerChannelId:b.dataset.copyUrl;copyStreamAddress(state.channels.find(x=>x.id===id));return}
+   if(b.dataset.homeShortcut){savedFilter=b.dataset.homeShortcut;savedPage=1;go('saved');return}
    if(b.dataset.nav){go(b.dataset.nav);return}if(b.dataset.go){go(b.dataset.go);return}if(b.id==='settingsTop'){go('settings');return}
    if(b.dataset.category){go('explore');$('categoryFilter').value=b.dataset.category;explorePage=1;renderExplore();return}
    if(b.dataset.openlist){go('explore');$('listFilter').value=b.dataset.openlist;explorePage=1;renderExplore();return}
@@ -116,6 +168,8 @@
    if(b.dataset.restoreChannel){restoreFromTrash(b.dataset.restoreChannel);return}
    if(b.dataset.deletelist){const p=state.playlists.find(x=>x.id===b.dataset.deletelist);if(p&&confirm(`¿Enviar todos los canales de «${p.name}» a la papelera? Sus selecciones y favoritos se conservarán para poder restaurarlos.`)){const removed=state.channels.filter(x=>x.playlistId===p.id);removed.forEach(c=>{c.deletedFromPlaylist={...p}});state.trash.push(...removed);state.playlists=state.playlists.filter(x=>x.id!==p.id);state.channels=state.channels.filter(x=>x.playlistId!==p.id);save();renderAll();toast(removed.length+' canales enviados a la papelera')}return}
  });
+ const searchHome=()=>{const term=$('homeSearch').value.trim();$('searchInput').value=term;decisionFilter='all';explorePage=1;go('explore')};
+ $('homeSearchGo').addEventListener('click',searchHome);$('homeSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchHome()}});
  ['searchInput','listFilter','countryFilter','categoryFilter'].forEach(id=>$(id).addEventListener(id==='searchInput'?'input':'change',()=>{explorePage=1;renderExplore()}));
  $('clearSearch').onclick=()=>{$('searchInput').value='';explorePage=1;renderExplore()};$('resetExploreFilters').onclick=()=>{$('searchInput').value='';$('listFilter').value='';$('countryFilter').value='';$('categoryFilter').value='';decisionFilter='all';showHidden=false;explorePage=1;renderExplore()};
  $('showHidden').addEventListener('change',e=>{showHidden=e.target.checked;explorePage=1;renderExplore()});
@@ -205,9 +259,9 @@
  $('formUrl').addEventListener('submit',async e=>{e.preventDefault();const url=safeUrl($('playlistUrl').value);if(!url){toast('Introduce una dirección HTTP(S) válida.');return}const ok=await importFromUrl($('urlName').value||url.split('/').pop(),url,$('formUrl').querySelector('[type=submit]'));if(ok)$('formUrl').reset()});
  $('quickSpanish').onclick=()=>importSpanishAndLatam($('quickSpanish'));
  $('playerBackdrop').onclick=closePlayer;$('closePlayer').onclick=closePlayer;$('previousChannel').onclick=()=>jumpPlayer(-1);$('nextChannel').onclick=()=>jumpPlayer(1);
- $('video').addEventListener('error',()=>{$('playStatus').textContent='La señal no se puede reproducir aquí. Prueba «Abrir en VLC» o comprueba si sigue disponible.';$('playStatus').classList.remove('hidden')});$('video').addEventListener('playing',()=>$('playStatus').classList.add('hidden'));
+ $('video').addEventListener('error',()=>{$('playStatus').textContent=isIOS?'La señal no se puede reproducir aquí. Prueba «Abrir en VLC».':'La señal no se puede reproducir aquí. Pulsa «Descargar para VLC» y abre el archivo en el reproductor.';$('playStatus').classList.remove('hidden')});$('video').addEventListener('playing',()=>$('playStatus').classList.add('hidden'));
  $('playerFavorite').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.favorite=!c.favorite})};$('playerKeep').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.decision='keep'})};$('playerRemove').onclick=()=>{if(playerChannelId)updateChannel(playerChannelId,c=>{c.decision='remove'})};
- $('copyStream').onclick=async()=>{const c=state.channels.find(x=>x.id===playerChannelId);if(!c)return;try{await navigator.clipboard.writeText(c.url);toast('Dirección copiada')}catch{prompt('Copia la dirección:',c.url)}};
+ $('copyStream').onclick=()=>copyStreamAddress(state.channels.find(x=>x.id===playerChannelId));
  $('exportKept').onclick=()=>exportM3U('keep');$('exportFavorites').onclick=()=>exportM3U('favorite');
  $('backupBtn').onclick=()=>download('Mi_IPTV_respaldo_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(snapshot(),null,2),'application/json');
  $('restoreFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const v=JSON.parse(await file.text());if(!Array.isArray(v.playlists)||!Array.isArray(v.channels))throw new Error('Copia no válida');if(!confirm('¿Reemplazar tus listas y decisiones actuales con esta copia?'))return;state.playlists=v.playlists;state.channels=v.channels;state.trash=Array.isArray(v.trash)?v.trash:[];save();renderAll();toast('Copia restaurada')}catch(err){toast('No se pudo restaurar: '+err.message)}finally{e.target.value=''}});

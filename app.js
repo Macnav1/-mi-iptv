@@ -5,6 +5,10 @@
  const PAGE = 50;
  const state = {playlists:[], channels:[], trash:[], recent:[]};
  let explorePage=1,savedPage=1,decisionFilter='all', savedFilter='keep', activeList=[],playerIndex=0,playerChannelId=null,toastTimer=0,saveTimer=0,db=null,showHidden=false,currentCategory='',categoryPage=0,playerPoolKey='';
+ const EPG_CACHE_KEY='mi-iptv-epg-cache-v1';
+ const EPG_PRESETS={mx:'https://iptv-epg.org/files/epg-mx.xml',es:'https://iptv-epg.org/files/epg-es.xml',ar:'https://iptv-epg.org/files/epg-ar.xml',cl:'https://iptv-epg.org/files/epg-cl.xml',co:'https://iptv-epg.org/files/epg-co.xml'};
+ let epgIds=new Map(),epgNames=new Map(),epgLoaded=false,epgSource='',epgRefreshTimer=null;
+
  const countryNames={MX:'México',ES:'España',AR:'Argentina',CL:'Chile',CO:'Colombia',PE:'Perú',EC:'Ecuador',CR:'Costa Rica',UY:'Uruguay',US:'Estados Unidos',PY:'Paraguay',BO:'Bolivia',VE:'Venezuela',DO:'República Dominicana',GT:'Guatemala',SV:'El Salvador',HN:'Honduras',NI:'Nicaragua',PA:'Panamá',CU:'Cuba',PR:'Puerto Rico',BR:'Brasil',DE:'Alemania',FR:'Francia',CA:'Canadá',GB:'Reino Unido',PT:'Portugal',IT:'Italia',JP:'Japón',NL:'Países Bajos'};
  const countryAlias={};Object.entries(countryNames).forEach(([code,name])=>{countryAlias[name.toLowerCase()]=name;countryAlias[code.toLowerCase()]=name});
  const nativeCategories={general:'Televisión general',news:'Noticias',sports:'Deportes',movies:'Películas',series:'Series',documentary:'Documentales',culture:'Cultura',education:'Educación',kids:'Infantiles',music:'Música',entertainment:'Entretenimiento',animation:'Animación',business:'Negocios',cooking:'Cocina',family:'Familia',legislative:'Legislativo',lifestyle:'Estilo de vida',outdoor:'Aire libre',relax:'Relajación',religious:'Religión',science:'Ciencia',shop:'Compras',travel:'Viajes',weather:'Clima',auto:'Automovilismo',classic:'Clásicos',comedy:'Comedia',gaming:'Videojuegos',history:'Historia',hobby:'Aficiones'};
@@ -63,6 +67,71 @@
  async function getDB(){return new Promise((resolve,reject)=>{if(!('indexedDB' in window)){resolve(null);return;}const req=indexedDB.open('mi-iptv-persist',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('kv'))req.result.createObjectStore('kv')};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
  async function readPersist(){try{db=await getDB();if(db){return await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readonly');const req=tx.objectStore('kv').get(KEY);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}}catch(e){console.warn('Almacenamiento IndexedDB no disponible',e)}try{return JSON.parse(localStorage.getItem(KEY))}catch{return null}}
  async function writePersist(snapshot){if(db){try{await new Promise((resolve,reject)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(snapshot,KEY);t.oncomplete=resolve;t.onerror=()=>reject(t.error)});return}catch(e){console.warn('No se pudo escribir en IndexedDB',e)}}try{localStorage.setItem(KEY,JSON.stringify(snapshot))}catch(e){if(location.protocol!=='about:'&&location.protocol!=='file:')toast('Sin espacio para guardar los datos. Descarga una copia de seguridad.')}}
+
+ // EPG XMLTV: almacena la guía en una clave independiente (nunca dentro de los favoritos/listas).
+ function epgStatus(message,isError=false){$('epgStatus').textContent=message;$('epgStatus').className='epg-info '+(isError?'error':epgLoaded?'success':'');}
+ function epgTime(n){return new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(n));}
+ function epgLocalDate(n){return new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',day:'2-digit',month:'short'}).format(new Date(n));}
+ function xmlDate(value){const m=String(value||'').trim().match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?\s*([+-])(\d{2})(\d{2})/);if(!m)return NaN;const t=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));const diff=(+m[8]*60+ +m[9])*60000;return t+(m[7]==='+'?-diff:diff);}
+ function cleanEpgName(s){return norm(s).replace(/\([^)]*\)/g,'').replace(/\b(?:tv|hd|sd|uhd|4k|en vivo|latinoamerica|mexico)\b/g,'').replace(/[^a-z0-9]/g,'').trim()}
+ function parseXmltv(xml){
+   if(xml.length>38*1024*1024)throw Error('El archivo XMLTV supera 38 MB. Prueba una guía por país.');
+   const doc=new DOMParser().parseFromString(xml,'application/xml');if(doc.querySelector('parsererror'))throw Error('El archivo no contiene XMLTV válido.');
+   const root=doc.documentElement;if(root.localName!=='tv')throw Error('Se esperaba un archivo XMLTV con la etiqueta <tv>.');
+   const ids=new Map(),names=new Map();let programs=0;
+   for(const ch of root.getElementsByTagName('channel')){
+     const id=ch.getAttribute('id')?.trim();if(!id)continue;
+     ids.set(id,[]);
+     for(const entry of ch.getElementsByTagName('display-name')){
+       const key=cleanEpgName(entry.textContent||'');if(key.length<3)continue;
+       if(!names.has(key))names.set(key,new Set());names.get(key).add(id);
+     }
+   }
+   for(const entry of root.getElementsByTagName('programme')){
+     const channel=entry.getAttribute('channel')?.trim();if(!channel)continue;
+     const start=xmlDate(entry.getAttribute('start')),stop=xmlDate(entry.getAttribute('stop'));
+     if(!Number.isFinite(start)||!Number.isFinite(stop)||stop<=start)continue;
+     // No conservar programas de hace días para reducir memoria.
+     if(stop<Date.now()-12*3600000||start>Date.now()+8*86400000)continue;
+     const title=entry.getElementsByTagName('title')[0]?.textContent?.trim()||'Programa sin título';
+     const description=entry.getElementsByTagName('desc')[0]?.textContent?.trim()||'';
+     if(!ids.has(channel))ids.set(channel,[]);
+     ids.get(channel).push({start,stop,title,description});programs++;
+   }
+   if(!ids.size||!programs)throw Error('La guía no contiene programas actuales o futuros con fechas válidas.');
+   for(const list of ids.values())list.sort((a,b)=>a.start-b.start);
+   return {ids,names,programs};
+ }
+ function matchEpg(c){if(!c||!epgLoaded)return null;const id=String(c.tvgId||'').trim();if(id&&epgIds.has(id)&&epgIds.get(id).length)return epgIds.get(id);const key=cleanEpgName(c.name);const candidates=epgNames.get(key);if(candidates?.size===1){const match=epgIds.get([...candidates][0]);if(match?.length)return match;}return null;}
+ function epgCoverage(){let found=0;for(const c of state.channels)if(matchEpg(c))found++;$('epgCoverage').textContent=epgLoaded?`${found.toLocaleString('es-MX')} de ${state.channels.length.toLocaleString('es-MX')} canales tienen coincidencia de programación en la guía cargada. No implica que puedan reproducirse.`:'No se han asociado canales.';}
+ function renderEpgForPlayer(){
+   const status=$('epgPlayerStatus'),box=$('epgPrograms');box.classList.add('hidden');
+   if(!epgLoaded){status.textContent='Carga una guía desde Ajustes para consultar los horarios de los canales compatibles.';return;}
+   const c=state.channels.find(x=>x.id===playerChannelId);if(!c){status.textContent='Selecciona un canal.';return;}
+   const list=matchEpg(c);if(!list){status.textContent='Programación no disponible para este canal en la fuente seleccionada.';return;}
+   const now=Date.now();const current=list.find(x=>x.start<=now&&x.stop>now);const upcoming=list.filter(x=>x.start>now).slice(0,10);const next=upcoming[0];
+   if(!current&&!next){status.textContent='No hay programación vigente o próxima para este canal.';return;}
+   status.textContent=`Datos EPG disponibles · Horarios de Ciudad de México · Fuente: ${epgSource}`;
+   $('epgNowTitle').textContent=current?.title||'Sin información actual';
+   $('epgNowTime').textContent=current?`${epgTime(current.start)} – ${epgTime(current.stop)} · ${epgLocalDate(current.start)}`:'—';
+   $('epgProgressFill').style.width=current?Math.min(100,Math.max(0,(now-current.start)/(current.stop-current.start)*100)).toFixed(1)+'%':'0%';
+   $('epgNextTitle').textContent=next?.title||'Sin información próxima';
+   $('epgNextTime').textContent=next?`${epgTime(next.start)} – ${epgTime(next.stop)} · ${epgLocalDate(next.start)}`:'—';
+   $('epgAgendaList').innerHTML=upcoming.length?upcoming.map(x=>`<div class="epg-agenda-row"><time datetime="${new Date(x.start).toISOString()}">${esc(epgTime(x.start))}</time><strong>${esc(x.title)}</strong></div>`).join(''):'<p class="epg-note">No hay más programas publicados.</p>';
+   box.classList.remove('hidden');
+ }
+ async function epgCacheWrite(xml,source){if(!db)return;try{await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put({xml,source,savedAt:Date.now()},EPG_CACHE_KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(e){console.warn('Guía EPG no almacenada para futuras sesiones:',e)}}
+ async function epgCacheRead(){if(!db)return null;try{return await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readonly'),req=tx.objectStore('kv').get(EPG_CACHE_KEY);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}catch{return null}}
+ async function epgCacheClear(){if(!db)return;try{await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').delete(EPG_CACHE_KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch{}}
+ function applyEpg(xml,source){const result=parseXmltv(xml);epgIds=result.ids;epgNames=result.names;epgLoaded=true;epgSource=source;epgCoverage();renderEpgForPlayer();epgStatus(`Guía cargada: ${[...result.ids.values()].filter(x=>x.length).length.toLocaleString('es-MX')} canales con programación y ${result.programs.toLocaleString('es-MX')} programas vigentes o próximos. Fuente: ${source}`);}
+ async function loadEpg(){const btn=$('epgLoad'),url=$('epgUrl').value.trim();if(!safeUrl(url)||!url.startsWith('https://')){epgStatus('Utiliza una URL HTTPS de una guía XMLTV.',true);return}btn.disabled=true;btn.textContent='Descargando guía…';epgStatus('Solicitando la guía…');
+   const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),30000);
+   try{const res=await fetch(url,{cache:'no-store',signal:ctl.signal});if(!res.ok)throw Error(`HTTP ${res.status}`);let bytes=await res.arrayBuffer();if(bytes.byteLength>38*1024*1024)throw Error('La respuesta supera 38 MB.');let xml;
+     if(bytes.byteLength>2&&new Uint8Array(bytes)[0]===0x1f&&new Uint8Array(bytes)[1]===0x8b){if(!('DecompressionStream' in window))throw Error('El navegador no puede descomprimir .gz. Usa un .xml sin comprimir.');const decompressed=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));xml=await new Response(decompressed).text();}else xml=new TextDecoder('utf-8').decode(bytes);
+     applyEpg(xml,url);await epgCacheWrite(xml,url);
+   }catch(err){epgStatus(`No se pudo cargar la guía: ${err.message}. Si Chrome bloquea la conexión (CORS), descarga el XMLTV en Archivos y utiliza «Importar XMLTV». Tus listas no se han modificado.`,true)}finally{clearTimeout(timer);btn.disabled=false;btn.textContent='Actualizar guía';}}
+ async function readEpgFile(file){let bytes=await file.arrayBuffer();if(bytes.byteLength>38*1024*1024)throw Error('El archivo supera 38 MB. Usa una guía por país.');let xml;if(bytes.byteLength>2&&new Uint8Array(bytes)[0]===0x1f&&new Uint8Array(bytes)[1]===0x8b){if(!('DecompressionStream' in window))throw Error('Tu navegador no puede descomprimir .gz: descomprímelo antes.');xml=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text()}else xml=new TextDecoder('utf-8').decode(bytes);applyEpg(xml,file.name);await epgCacheWrite(xml,file.name)}
+
  function snapshot(){return {version:2,playlists:state.playlists,channels:state.channels,trash:state.trash,recent:state.recent}}
  function save(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>writePersist(snapshot()),350)}
  function toast(message){const el=$('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.add('hidden'),4200)}
@@ -157,7 +226,7 @@
    $('playerBackdrop').classList.remove('hidden');$('playerModal').classList.remove('hidden');$('playStatus').classList.add('hidden');
    $('openVLC').href=vlcLink(c.url)||'#';$('openVLCLegacy').href=vlcLegacyLink(c.url)||'#';$('openVLC').classList.toggle('hidden',!isIOS);$('openVLCLegacy').classList.toggle('hidden',!isIOS);$('shareVLCCurrent').classList.toggle('hidden',!isIOS);$('downloadVLCPc').classList.toggle('hidden',isIOS);
    $('vlcHelp').textContent=isIOS?'Si VLC se abre sin video, prueba «Otra apertura» o «Compartir M3U».':'Descarga el M3U del canal para abrirlo en VLC, o copia la URL y pégala en VLC → Abrir ubicación de red.';
-   updatePlayerButtons();renderPlayerGuide();
+   updatePlayerButtons();renderPlayerGuide();renderEpgForPlayer();
    state.recent=[id,...state.recent.filter(x=>x!==id)].slice(0,18);save();renderHome();
    const v=$('video');v.pause();v.removeAttribute('src');v.load();
    if(!safeUrl(c.url)){$('playStatus').textContent='Este formato no es compatible con el navegador. Prueba la alternativa de VLC.';$('playStatus').classList.remove('hidden');return;}
@@ -313,6 +382,12 @@
  $('categoryMore').onclick=()=>{categoryPage++;renderCategory()};$('categoryAllExplore').onclick=()=>{go('explore');$('categoryFilter').value=currentCategory;renderExplore()};
  $('playerChannelGroup').addEventListener('change',e=>changePlayerGroup(e.target.value));
  $('playerChannelSearch').addEventListener('input',renderPlayerGuide);
+ $('epgGoSettings').onclick=()=>{closePlayer();go('settings');$('epgSettings').scrollIntoView({block:'start',behavior:'smooth'})};
+ $('epgPreset').addEventListener('change',e=>{const v=EPG_PRESETS[e.target.value];$('epgUrl').value=v||'';$('epgUrl').disabled=!!v;});
+ $('epgPreset').dispatchEvent(new Event('change'));
+ $('epgLoad').onclick=loadEpg;
+ $('epgFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;epgStatus('Leyendo XMLTV desde Archivos…');try{await readEpgFile(file)}catch(err){epgStatus('No se pudo importar la guía: '+err.message,true)}finally{e.target.value=''}});
+ $('epgClear').onclick=async()=>{if(!epgLoaded)return;if(!confirm('¿Quitar solamente la guía de programación? No se borrará ningún canal ni favorito.'))return;epgIds=new Map();epgNames=new Map();epgLoaded=false;epgSource='';await epgCacheClear();epgCoverage();renderEpgForPlayer();epgStatus('La guía se ha quitado. Tus canales y favoritos no cambiaron.')};
  $('playerFullscreen').onclick=()=>{const v=$('video');if(v.requestFullscreen)v.requestFullscreen().catch(()=>toast('La pantalla completa no está disponible aquí.'));else if(v.webkitEnterFullscreen)v.webkitEnterFullscreen()};
  $('playerBackdrop').onclick=closePlayer;$('closePlayer').onclick=closePlayer;$('previousChannel').onclick=()=>jumpPlayer(-1);$('nextChannel').onclick=()=>jumpPlayer(1);
  $('video').addEventListener('error',()=>{$('playStatus').textContent=isIOS?'La señal no se puede reproducir aquí. Prueba «Abrir en VLC».':'La señal no se puede reproducir aquí. Pulsa «Descargar para VLC» y abre el archivo en el reproductor.';$('playStatus').classList.remove('hidden')});$('video').addEventListener('playing',()=>$('playStatus').classList.add('hidden'));
@@ -325,6 +400,6 @@
  $('deleteAll').onclick=()=>{if(confirm('¿Eliminar todas las listas, selecciones y favoritos? Guarda primero un respaldo JSON. Esta acción no se puede deshacer.')){state.playlists=[];state.channels=[];state.trash=[];state.recent=[];save();renderAll();toast('Datos eliminados')}};
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&playerChannelId)closePlayer();else if(playerChannelId&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)&&!e.ctrlKey&&!e.metaKey){if(e.key==='ArrowUp'||e.key==='ArrowRight'){e.preventDefault();jumpPlayer(1)}else if(e.key==='ArrowDown'||e.key==='ArrowLeft'){e.preventDefault();jumpPlayer(-1)}}});
  }
- async function boot(){setupEvents();const loaded=await readPersist();if(loaded&&Array.isArray(loaded.playlists)&&Array.isArray(loaded.channels)){state.playlists=loaded.playlists;state.channels=loaded.channels;state.trash=Array.isArray(loaded.trash)?loaded.trash:[];state.recent=Array.isArray(loaded.recent)?loaded.recent:[];}else{try{addList('43 canales originales',window.IPTV_DEMO_M3U,'builtin')}catch(e){console.warn('No se pudo preparar la lista inicial:',e)}}renderAll();go('home');$('installStatus').textContent=location.protocol==='https:'?'Puedes abrir Mi IPTV desde Chrome o añadirla a la pantalla de inicio.':'Para instalar como app, publica la carpeta en un servicio HTTPS. Abrir el HTML desde Archivos o iZip puede limitar sus funciones.';if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(e=>console.warn(e));}
+ async function boot(){setupEvents();const loaded=await readPersist();if(loaded&&Array.isArray(loaded.playlists)&&Array.isArray(loaded.channels)){state.playlists=loaded.playlists;state.channels=loaded.channels;state.trash=Array.isArray(loaded.trash)?loaded.trash:[];state.recent=Array.isArray(loaded.recent)?loaded.recent:[];}else{try{addList('43 canales originales',window.IPTV_DEMO_M3U,'builtin')}catch(e){console.warn('No se pudo preparar la lista inicial:',e)}}renderAll();go('home');const epgOld=await epgCacheRead();if(epgOld?.xml&&epgOld.savedAt>Date.now()-24*3600000){try{applyEpg(epgOld.xml,epgOld.source+' (copia local)')}catch(e){epgStatus('No se pudo restaurar la guía: '+e.message,true)}}$('installStatus').textContent=location.protocol==='https:'?'Puedes abrir Mi IPTV desde Chrome o añadirla a la pantalla de inicio.':'Para instalar como app, publica la carpeta en un servicio HTTPS. Abrir el HTML desde Archivos o iZip puede limitar sus funciones.';if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(e=>console.warn(e));}
  boot();
 })();

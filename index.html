@@ -11,15 +11,15 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css?v=1.6">
-  <title>Mi IPTV V1.6 · Experiencia TV</title>
+  <link rel="stylesheet" href="./styles.css?v=1.7">
+  <title>Mi IPTV V1.7 · Guía de programación</title>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
       <div class="branding"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor"/></svg></div><div><h1>Mi IPTV</h1><span>Tu televisión, tus listas</span></div></div>
       <div class="header-tools">
-        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.6</strong></span>
+        <span class="version-pill"><span class="version-dot" aria-hidden="true"></span> Mi IPTV <strong>1.7</strong></span>
         <button class="header-add" data-go="playlists" type="button"><span aria-hidden="true">+</span> Nueva lista</button>
         <button class="iconbtn" id="settingsTop" aria-label="Configuración" title="Configuración">⚙</button>
       </div>
@@ -138,6 +138,17 @@
       <section class="screen" id="screen-settings" aria-label="Ajustes">
         <div class="section-intro"><h2>Configuración</h2><p>Privacidad, compatibilidad y copia de seguridad.</p></div>
         <div class="panel"><h3>Compatibilidad con VLC en iPhone y computadora</h3><p class="muted">Mi IPTV reproduce señales compatibles con el video nativo de Safari, especialmente HLS (.m3u8). No reproduce automáticamente transmisiones con DRM, restricciones de región o formatos no admitidos.</p><p class="muted">Con «Abrir en VLC» puedes intentar reproducir la dirección original de un canal en la app VLC instalada en tu iPhone. Si VLC se abre sin mostrar el canal, prueba «Otra apertura en VLC» o comparte el archivo M3U desde el reproductor. También puedes copiar la URL y pegarla en VLC → Red → Abrir transmisión de red. En Windows y Mac, utiliza «Archivo para VLC», abre el M3U descargado con VLC o copia la URL y pégala en «Abrir ubicación de red». El navegador de escritorio no puede iniciar VLC automáticamente sin una asociación especial del sistema. No garantiza acceso a contenido restringido.</p><p class="muted">La interfaz puede funcionar sin conexión una vez instalada, pero la televisión en directo requiere Internet. Los 43 canales incluidos tienen categorías orientativas sugeridas; no se ha verificado individualmente su reproducción.</p></div>
+        <div class="panel" id="epgSettings"><h3>Guía de programación (EPG)</h3>
+          <p class="muted">Consulta los horarios de las fuentes XMLTV. La guía aparece dentro del reproductor cuando el identificador <code>tvg-id</code> o el nombre del canal coincide con la fuente. No todos los canales tienen programación.</p>
+          <label class="formlabel" for="epgPreset">Fuente EPG</label>
+          <select id="epgPreset" class="epg-select"><option value="mx">México · IPTV-EPG</option><option value="es">España · IPTV-EPG</option><option value="ar">Argentina · IPTV-EPG</option><option value="cl">Chile · IPTV-EPG</option><option value="co">Colombia · IPTV-EPG</option><option value="custom">Dirección XMLTV personalizada</option></select>
+          <label class="formlabel" for="epgUrl">URL XMLTV (HTTPS)</label><input type="url" id="epgUrl" class="epg-input" placeholder="https://servidor/guia.xml" inputmode="url">
+          <div class="action-row epg-actions"><button type="button" class="btn primary" id="epgLoad">Actualizar guía</button><label class="btn outline epg-file-label" for="epgFile">Importar XMLTV desde Archivos</label><input id="epgFile" type="file" accept=".xml,.xmltv,.gz,.xml.gz,text/xml,application/xml,application/gzip" hidden></div>
+          <p class="helptext">Puedes importar archivos <code>.xml</code> o <code>.xml.gz</code>. Si un servidor bloquea la descarga (CORS), usa «Importar XMLTV desde Archivos». La guía se conserva temporalmente en este navegador; no modifica tus listas ni favoritos.</p>
+          <p id="epgStatus" class="epg-info" role="status">Aún no hay una guía cargada.</p>
+          <p id="epgCoverage" class="helptext">No se han asociado canales.</p>
+          <button id="epgClear" type="button" class="smallbtn">Quitar guía cargada</button>
+        </div>
         <div class="panel"><h3>Papelera recuperable</h3><p class="muted">Los canales que elimines se guardan aquí junto con su estado de Conservar/Quitar y favoritos. Puedes restaurarlos sin afectar el resto.</p><p id="trashCount" class="helptext">0 canales en papelera</p><div id="trashList" class="saved-lists"></div><button id="emptyTrash" class="btn danger">Vaciar papelera definitivamente</button></div>
         <div class="panel"><h3>Copias de seguridad</h3><p class="muted">Las listas y tus decisiones se guardan localmente en este navegador. Exporta una copia si vas a cambiar de teléfono o borrar los datos de Chrome.</p><div class="stack"><button class="btn outline" id="backupBtn">Descargar copia de seguridad (.json)</button><label class="btn outline file-btn" for="restoreFile">Restaurar copia (.json)</label><input type="file" id="restoreFile" accept="application/json,.json" hidden></div></div>
         <div class="panel"><h3>Instalar en la pantalla de inicio</h3><p class="muted">Una vez publicada en HTTPS, ábrela en un navegador compatible, pulsa Compartir y elige «Añadir a pantalla de inicio».</p><p class="helptext" id="installStatus"></p></div>
@@ -164,6 +175,14 @@
           <button type="button" class="remote-favorite" id="playerFavorite">♡ Favorito</button>
           <button type="button" class="remote-fullscreen" id="playerFullscreen" title="Pantalla completa">⛶ <span>Pantalla completa</span></button>
         </div>
+        <section class="epg-player" id="epgPlayer" aria-label="Programación del canal">
+          <div class="epg-player-header"><div><span class="epg-eyebrow">GUÍA DE PROGRAMACIÓN</span><h3>¿Qué están transmitiendo?</h3></div><button id="epgGoSettings" type="button" class="smallbtn">Configurar EPG</button></div>
+          <p id="epgPlayerStatus" class="epg-note" role="status">Para ver la programación, carga una fuente EPG desde Ajustes.</p>
+          <div id="epgPrograms" class="hidden">
+            <div class="epg-cards"><div class="epg-show epg-now"><span class="epg-eyebrow">AHORA</span><strong id="epgNowTitle">—</strong><small id="epgNowTime">—</small><div class="epg-progress"><div id="epgProgressFill"></div></div></div><div class="epg-show"><span class="epg-eyebrow">A CONTINUACIÓN</span><strong id="epgNextTitle">—</strong><small id="epgNextTime">—</small></div></div>
+            <details class="epg-agenda"><summary>Ver programación del día</summary><div id="epgAgendaList"></div></details>
+          </div>
+        </section>
         <div class="player-controls player-decisions"><button id="playerKeep" class="btn outline" type="button">✓ Conservar</button><button id="playerRemove" class="btn outline" type="button">× Quitar</button></div>
         <details class="player-advanced"><summary>Más opciones de reproducción</summary><div class="vlc-actions"><a id="openVLC" class="btn vlc-cta" href="#" data-external-vlc="current">▶ Abrir en VLC (directo)</a><a id="openVLCLegacy" class="btn outline hidden" href="#" data-external-vlc="current">↗ Otra apertura en VLC</a><button id="shareVLCCurrent" class="btn outline hidden" type="button" data-share-vlc="current">↥ Compartir M3U</button><button id="downloadVLCPc" type="button" class="btn vlc-cta hidden" data-download-vlc="current">↓ Archivo para VLC</button><button id="copyStream" type="button" class="btn outline">Copiar dirección</button><p id="vlcHelp" class="vlc-help">Si la señal no funciona aquí, prueba con VLC.</p></div></details>
       </div>
@@ -179,6 +198,6 @@
   </section>
   <div class="toast hidden" role="status" id="toast"></div>
   <script src="./demo.js"></script>
-  <script src="./app.js?v=1.6" defer></script>
+  <script src="./app.js?v=1.7" defer></script>
 </body>
 </html>
